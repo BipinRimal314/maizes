@@ -146,7 +146,7 @@ function saveSession(session) {
 
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed))
-  } catch (e) {
+  } catch {
     // localStorage full — trim harder
     const halved = trimmed.slice(-Math.floor(MAX_SESSIONS / 2))
     localStorage.setItem(STORAGE_KEY, JSON.stringify(halved))

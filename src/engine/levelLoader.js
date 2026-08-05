@@ -1,47 +1,23 @@
 /**
  * Load curated levels — hand-crafted basics + ML-generated curated set.
+ *
+ * Decoding goes through the shared codec in levelFormat.js. This file used to
+ * carry its own copy that silently dropped mimics, liar walls and memory-wipe
+ * zones on the floor.
  */
 
 import { LEVELS as HAND_CRAFTED } from './levels'
+import { decodeGrid } from './levelFormat'
 
-function jsonToGrid(mazeData) {
-  const cols = mazeData.c
-  const rows = mazeData.r
+const BASE_URL = import.meta.env?.BASE_URL || '/'
 
-  const cells = []
-  for (let y = 0; y < rows; y++) {
-    for (let x = 0; x < cols; x++) {
-      cells.push({
-        x, y,
-        walls: { top: false, right: false, bottom: false, left: false },
-        modifier: null,
-        trap: false,
-        gate: null,
-        liarWalls: null,
-        mimic: false,
-        memoryWipe: false,
-      })
-    }
+/** "The Fog 11" -> "The Fog". Levels are named "<chapter> <n>". */
+function chapterNameOf(levelName) {
+  const parts = levelName.trim().split(' ')
+  if (parts.length > 1 && /^\d+$/.test(parts[parts.length - 1])) {
+    return parts.slice(0, -1).join(' ')
   }
-
-  for (const entry of mazeData.d) {
-    const [x, y, wallBits, modifier, trap, gateDir] = entry
-    const cell = cells[y * cols + x]
-    cell.walls.top = !!(wallBits & 1)
-    cell.walls.right = !!(wallBits & 2)
-    cell.walls.bottom = !!(wallBits & 4)
-    cell.walls.left = !!(wallBits & 8)
-    if (modifier) cell.modifier = modifier
-    if (trap) cell.trap = true
-    if (gateDir) cell.gate = { direction: gateDir, open: true }
-  }
-
-  return {
-    cols, rows, cells,
-    start: { x: mazeData.s[0], y: mazeData.s[1] },
-    end: { x: mazeData.e[0], y: mazeData.e[1] },
-    hiddenWord: mazeData.w || '',
-  }
+  return levelName
 }
 
 async function loadAllLevels() {
@@ -55,17 +31,18 @@ async function loadAllLevels() {
     deathMode: 'progress',
   }))
 
-  // chapters 2-4: curated ML levels
-  let curated = []
+  // chapters 2+: curated ML levels
+  const curated = []
   try {
-    const resp = await fetch('/levels/curated.json')
+    const resp = await fetch(`${BASE_URL}levels/curated.json`)
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
     const data = await resp.json()
 
     let currentChapter = null
     let chapterNum = 1
 
     for (const level of data) {
-      const chName = level.name.split(' ').slice(0, -1).join(' ')
+      const chName = chapterNameOf(level.name)
       if (chName !== currentChapter) {
         chapterNum++
         currentChapter = chName
@@ -76,9 +53,9 @@ async function loadAllLevels() {
         description: level.description,
         chapter: currentChapter,
         chapterNumber: chapterNum,
-        grid: jsonToGrid(level.maze),
+        grid: decodeGrid(level.maze),
         era: level.era || 'learning',
-        fogRadius: level.fog_radius || null,
+        fogRadius: level.fog_radius ?? null,
         deathMode: level.death_mode || 'progress',
       })
     }
@@ -89,4 +66,4 @@ async function loadAllLevels() {
   return [...intro, ...curated]
 }
 
-export { loadAllLevels }
+export { loadAllLevels, chapterNameOf }

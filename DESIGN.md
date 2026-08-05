@@ -9,13 +9,16 @@ Long-term: Steam release with infinite ML-generated levels and real-time difficu
 
 ---
 
-## What exists today (v1 — shipped)
+## What exists today
 
 ### Core game
-- **Level select** — 100 levels across 10 chapters, 3 difficulty eras
-- **Build mode** — Grid editor, modifier palette, share via URL hash
-- **Suffer mode** — Ball physics, WASD/arrow controls, touch support
+- **Level select** — 28 levels across 4 chapters, 3 difficulty eras
+  (3 hand-crafted + 25 curated; the "100 levels across 10 chapters" this
+  document used to claim was never true of the shipped build)
+- **Build mode** — Grid editor, obstacle palette, share via URL hash
+- **Suffer mode** — Ball physics on a fixed timestep, WASD/arrow, touch
 - **Victory/shame screen** — Grade system (S to E-), stats, death quips
+- **Saved progress** — completions persist in localStorage
 
 ### Difficulty systems (working)
 - **Fog of war** — Can only see cells within a radius of the ball. Forces memorization.
@@ -26,11 +29,15 @@ Long-term: Steam release with infinite ML-generated levels and real-time difficu
 - **Time decay** — After 10 deaths in sadistic era, darkness spreads from start consuming the maze.
 
 ### Procedural generation
+Now entirely in the Python pipeline under `ml/`. The in-browser generator
+(`src/engine/generator.js`, 833 lines) was removed: nothing imported it, it had
+been superseded by the ML pipeline that produces `curated.json`, and every
+modifier it placed was on the retired list.
+
 - Recursive backtracker base maze (guarantees solvability)
 - Loop injection (5-15% wall removal for alternate routes)
 - Seductive dead end extension (biased toward exit direction)
-- Trap placement on tempting wrong paths
-- Gate placement on solution path
+- Obstacle placement and rebalancing — `ml/export/rebalance.py`
 - Seeded PRNG (deterministic levels)
 
 ### Design system ("The Saccharine Subversion")
@@ -47,9 +54,12 @@ Long-term: Steam release with infinite ML-generated levels and real-time difficu
 
 ---
 
-## What's being killed (v2 — motor modifiers)
+## What was killed (motor modifiers) — done
 
-These modifiers affect ball control, not decision-making. They make the game annoying, not hard.
+These modifiers affected ball control, not decision-making. They made the game
+annoying, not hard. They are removed from the engine, the level data, the
+builder palette and the tutorial. `engine/obstacles.js` holds the retired list
+and the test suite fails if any of them reappear in a level.
 
 | Modifier | Why it's being removed |
 |----------|----------------------|
@@ -217,6 +227,16 @@ The ML pipeline needs a mathematical definition of "hard." Here's the metric spa
 | **Time pressure** | How fast does the environment degrade? (corruption speed × maze size) | 0 (none) to critical |
 
 **Combined difficulty score:** Weighted sum, calibrated against human play data.
+
+> **Known metric failure — fixed.** `solution_opacity` divided solution length
+> by Manhattan distance, so the cheapest way to score highly was to put the exit
+> next to the start behind a wall: a one-cell separation with a long detour
+> scored 14.0, and one level reached 64.0 — the highest in the set. Five of the
+> 27 shipped levels were selected on that exploit. A later fix that opened up
+> walled starts and exits then removed the detour without recomputing anything,
+> leaving levels that advertised an opacity of 64 while being solvable in a
+> single move. The metric now scores zero when start and exit are closer than a
+> quarter of the board.
 
 ---
 

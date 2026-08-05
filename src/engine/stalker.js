@@ -1,178 +1,100 @@
 /**
- * The Apparition — a shadow that follows the player's exact path on a delay.
+ * The Apparition — a shadow that retraces your exact path on a delay.
  *
- * Records every position the ball visits. After a delay (default 10s),
- * the shadow starts replaying that path. If the shadow reaches the ball, death.
+ * It does not chase and it does not cheat. It walks where you walked, ten
+ * seconds late, which means the only thing that kills you is your own
+ * hesitation or backtracking. That is why it survives the motor-difficulty
+ * cull: you beat it with route decisions, not reflexes.
  *
- * The shadow is visible through fog (you can always see it coming).
- * Speed matches the player's average speed — it doesn't cheat, it just
- * never stops and never hesitates.
+ * Rewritten to be mutable and driven by the game clock. The original rebuilt
+ * the entire path array every 100ms (`path: [...stalker.path, pos]`), which is
+ * quadratic in level length, and read Date.now() directly, so it kept advancing
+ * while the game was paused.
  */
 
 const STALKER_DELAY_MS = 10000
-const STALKER_SAMPLE_INTERVAL = 100  // record position every 100ms
-const STALKER_CATCH_RADIUS = 0.6      // cells — must overlap the ball, not just be nearby
+const STALKER_SAMPLE_MS = 100
+const STALKER_CATCH_RADIUS = 0.6   // cells — must overlap the ball, not merely be near
 
 function createStalker(enabled = false) {
   return {
     enabled,
-    path: [],               // recorded positions: [{x, y, t}]
-    shadowIndex: 0,          // current position in path replay
-    shadowX: null,
-    shadowY: null,
-    startTime: Date.now(),
-    lastSample: 0,
-    active: false,           // becomes true after delay
-    caught: false,
-  }
-}
-
-function recordStalkerPosition(stalker, ballX, ballY, cellSize) {
-  if (!stalker.enabled) return stalker
-
-  const now = Date.now()
-  if (now - stalker.lastSample < STALKER_SAMPLE_INTERVAL) return stalker
-
-  const cellX = ballX / cellSize
-  const cellY = ballY / cellSize
-
-  return {
-    ...stalker,
-    path: [...stalker.path, { x: cellX, y: cellY, t: now }],
-    lastSample: now,
-  }
-}
-
-function updateStalker(stalker, ballX, ballY, cellSize, grid) {
-  if (!stalker.enabled) return stalker
-  if (stalker.path.length === 0) return stalker
-
-  const now = Date.now()
-  const elapsed = now - stalker.startTime
-
-  // stalker activates after delay
-  if (elapsed < STALKER_DELAY_MS) {
-    return { ...stalker, active: false }
-  }
-
-  if (!stalker.active) {
-    return { ...stalker, active: true, shadowIndex: 0 }
-  }
-
-  // find the path position that corresponds to (now - delay)
-  const targetTime = now - STALKER_DELAY_MS
-  let idx = stalker.shadowIndex
-  while (idx < stalker.path.length - 1 && stalker.path[idx + 1].t <= targetTime) {
-    idx++
-  }
-
-  if (idx >= stalker.path.length) {
-    // shadow has caught up to the end of recorded path
-    // it stops and waits (player is still moving, recording new positions)
-    idx = stalker.path.length - 1
-  }
-
-  const shadowPos = stalker.path[idx]
-  const shadowX = shadowPos.x
-  const shadowY = shadowPos.y
-
-  // check if shadow caught the ball — must be in same cell, no killing through walls
-  const ballCellX = ballX / cellSize
-  const ballCellY = ballY / cellSize
-  const ballGridX = Math.floor(ballCellX)
-  const ballGridY = Math.floor(ballCellY)
-  const shadowGridX = Math.floor(shadowX)
-  const shadowGridY = Math.floor(shadowY)
-
-  const sameCell = ballGridX === shadowGridX && ballGridY === shadowGridY
-  const dist = Math.sqrt(
-    Math.pow(shadowX - ballCellX, 2) + Math.pow(shadowY - ballCellY, 2)
-  )
-
-  const caught = sameCell && dist < STALKER_CATCH_RADIUS
-
-  return {
-    ...stalker,
-    shadowIndex: idx,
-    shadowX,
-    shadowY,
-    caught,
-    active: true,
-  }
-}
-
-function drawStalker(ctx, stalker, cellSize, now) {
-  if (!stalker.enabled || !stalker.active || stalker.shadowX === null) return
-
-  const x = stalker.shadowX * cellSize
-  const y = stalker.shadowY * cellSize
-  const radius = cellSize * 0.4
-
-  // pulsing dark shadow
-  const pulse = 0.6 + Math.sin(now / 300) * 0.2
-
-  // shadow trail (last few positions)
-  const trailStart = Math.max(0, stalker.shadowIndex - 8)
-  for (let i = trailStart; i < stalker.shadowIndex; i++) {
-    const pos = stalker.path[i]
-    if (!pos) continue
-    const trailAlpha = 0.05 + ((i - trailStart) / 8) * 0.15
-    ctx.fillStyle = `rgba(50, 47, 35, ${trailAlpha})`
-    ctx.beginPath()
-    ctx.arc(pos.x * cellSize, pos.y * cellSize, radius * 0.6, 0, Math.PI * 2)
-    ctx.fill()
-  }
-
-  // main shadow body
-  ctx.save()
-  ctx.shadowColor = 'rgba(153, 56, 98, 0.5)'
-  ctx.shadowBlur = 15
-  ctx.fillStyle = `rgba(50, 47, 35, ${pulse})`
-  ctx.beginPath()
-  ctx.arc(x, y, radius, 0, Math.PI * 2)
-  ctx.fill()
-  ctx.restore()
-
-  // eyes (two small dots)
-  ctx.fillStyle = `rgba(247, 75, 109, ${pulse})`
-  ctx.beginPath()
-  ctx.arc(x - radius * 0.25, y - radius * 0.1, radius * 0.15, 0, Math.PI * 2)
-  ctx.fill()
-  ctx.beginPath()
-  ctx.arc(x + radius * 0.25, y - radius * 0.1, radius * 0.15, 0, Math.PI * 2)
-  ctx.fill()
-}
-
-function resetStalker(stalker) {
-  if (!stalker.enabled) return stalker
-  return {
-    ...stalker,
-    path: [],
-    shadowIndex: 0,
-    shadowX: null,
-    shadowY: null,
-    startTime: Date.now(),
-    lastSample: 0,
+    path: [],        // {x, y, t} in cell units, game-clock ms
+    index: 0,        // replay cursor
+    x: null,
+    y: null,
+    lastSample: -Infinity,
     active: false,
     caught: false,
   }
 }
 
-// countdown display — seconds until stalker activates
-function stalkerCountdown(stalker) {
+function resetStalker(stalker) {
+  stalker.path.length = 0
+  stalker.index = 0
+  stalker.x = null
+  stalker.y = null
+  stalker.lastSample = -Infinity
+  stalker.active = false
+  stalker.caught = false
+  return stalker
+}
+
+/**
+ * Sample the ball's position onto the replay tape. `now` is game-clock ms since
+ * the attempt began, so a paused game records nothing.
+ */
+function recordStalkerPosition(stalker, ball, now) {
+  if (!stalker.enabled) return
+  if (now - stalker.lastSample < STALKER_SAMPLE_MS) return
+  stalker.path.push({ x: ball.x, y: ball.y, t: now })
+  stalker.lastSample = now
+}
+
+function updateStalker(stalker, ball, now) {
+  if (!stalker.enabled || stalker.path.length === 0) return
+
+  if (now < STALKER_DELAY_MS) {
+    stalker.active = false
+    return
+  }
+  stalker.active = true
+
+  // walk the cursor forward to the sample matching (now - delay)
+  const targetTime = now - STALKER_DELAY_MS
+  while (
+    stalker.index < stalker.path.length - 1 &&
+    stalker.path[stalker.index + 1].t <= targetTime
+  ) {
+    stalker.index++
+  }
+
+  const pos = stalker.path[stalker.index]
+  stalker.x = pos.x
+  stalker.y = pos.y
+
+  // Same cell only — it must not reach through a wall to kill you.
+  const sameCell =
+    Math.floor(pos.x) === Math.floor(ball.x) &&
+    Math.floor(pos.y) === Math.floor(ball.y)
+
+  stalker.caught = sameCell && Math.hypot(pos.x - ball.x, pos.y - ball.y) < STALKER_CATCH_RADIUS
+}
+
+/** Seconds until it starts moving, or 0 once it is hunting. */
+function stalkerCountdown(stalker, now) {
   if (!stalker.enabled) return null
   if (stalker.active) return 0
-  const elapsed = Date.now() - stalker.startTime
-  const remaining = Math.max(0, Math.ceil((STALKER_DELAY_MS - elapsed) / 1000))
-  return remaining
+  return Math.max(0, Math.ceil((STALKER_DELAY_MS - now) / 1000))
 }
 
 export {
   createStalker,
+  resetStalker,
   recordStalkerPosition,
   updateStalker,
-  drawStalker,
-  resetStalker,
   stalkerCountdown,
   STALKER_DELAY_MS,
+  STALKER_SAMPLE_MS,
+  STALKER_CATCH_RADIUS,
 }

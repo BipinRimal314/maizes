@@ -9,18 +9,39 @@ from collections import deque
 from .maze import Maze, solve_bfs, DIRECTION
 
 
+#: Below this fraction of (cols + rows), start and exit are too close together
+#: for the ratio below to mean anything.
+MIN_SEPARATION_FRACTION = 0.25
+
+
 def solution_opacity(maze):
     """How non-obvious is the correct path?
 
     Ratio of actual solution length to Manhattan distance.
     Higher = more winding, less intuitive.
     A straight-line maze scores ~1.0. A deeply hidden solution scores 3-5+.
+
+    The separation floor is not cosmetic. This metric fed the evolutionary
+    fitness function, and dividing by Manhattan distance meant the cheapest way
+    to score well was to put the exit next to the start behind a wall: a
+    one-cell separation with a fourteen-step detour scored 14.0, and one level
+    reached 64.0 that way. Five of the twenty-seven shipped levels were selected
+    on that exploit. A later fix that opened up walled starts and exits then
+    removed the detour without anyone recomputing the metric, leaving levels
+    that claimed an opacity of 64 while being solvable in a single move.
+
+    A level whose exit is next door is not opaque, however winding the long way
+    round happens to be. It scores zero.
     """
     solution = solve_bfs(maze)
     if not solution:
         return 0.0
     manhattan = abs(maze.end[0] - maze.start[0]) + abs(maze.end[1] - maze.start[1])
     if manhattan == 0:
+        return 0.0
+
+    min_separation = (maze.cols + maze.rows) * MIN_SEPARATION_FRACTION
+    if manhattan < min_separation:
         return 0.0
 
     # count direction reversals in solution
