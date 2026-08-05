@@ -23,17 +23,30 @@ function createStalker(enabled = false) {
     index: 0,        // replay cursor
     x: null,
     y: null,
+    epoch: 0,        // game time this attempt began
     lastSample: -Infinity,
     active: false,
     caught: false,
   }
 }
 
-function resetStalker(stalker) {
+/**
+ * Start a fresh attempt. `now` is the game time of the respawn, and the grace
+ * period is measured from it.
+ *
+ * The epoch is the whole point. The delay used to be compared against the raw
+ * game clock, which never resets, so once a level passed ten seconds every
+ * respawn re-armed the apparition immediately — onto a path that had just been
+ * cleared and whose only entry was the ball's own position. It caught the
+ * player on the very next step, and again, and again. Ten seconds of grace is
+ * per attempt, not per level.
+ */
+function resetStalker(stalker, now = 0) {
   stalker.path.length = 0
   stalker.index = 0
   stalker.x = null
   stalker.y = null
+  stalker.epoch = now
   stalker.lastSample = -Infinity
   stalker.active = false
   stalker.caught = false
@@ -54,8 +67,10 @@ function recordStalkerPosition(stalker, ball, now) {
 function updateStalker(stalker, ball, now) {
   if (!stalker.enabled || stalker.path.length === 0) return
 
-  if (now < STALKER_DELAY_MS) {
+  // grace is measured from the start of this attempt, not the start of the level
+  if (now - stalker.epoch < STALKER_DELAY_MS) {
     stalker.active = false
+    stalker.caught = false
     return
   }
   stalker.active = true
@@ -85,7 +100,8 @@ function updateStalker(stalker, ball, now) {
 function stalkerCountdown(stalker, now) {
   if (!stalker.enabled) return null
   if (stalker.active) return 0
-  return Math.max(0, Math.ceil((STALKER_DELAY_MS - now) / 1000))
+  const elapsed = now - stalker.epoch
+  return Math.max(0, Math.ceil((STALKER_DELAY_MS - elapsed) / 1000))
 }
 
 export {

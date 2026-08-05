@@ -85,6 +85,27 @@ the game itself.
 real physics engine, so "solvable" means the ball can actually walk it and not
 merely that a graph search found a route.
 
+Two further constraints exist because breaking them made the game look broken
+rather than hard:
+
+- **The maze as drawn must always show a route.** Liar walls make the drawn maze
+  and the real maze disagree, which is the point — but a phantom wall that seals
+  every apparent path reads as a bug, not a lie, and the player stops. Checked
+  in `levelData.test.js` against `visibleWalls`.
+- **No level may trap the player in a death loop.** Checked in
+  `softlock.property.test.js` by playing every level badly and asserting the
+  player keeps regaining control.
+
+### Property-based testing
+
+`fast-check` drives the two properties that hand-written cases kept missing:
+
+- `collision.property.test.js` — over random input sequences on every level, and
+  on randomly walled grids, the ball never makes a cell transition that the maze
+  graph forbids. This is what caught diagonal corner cutting.
+- `softlock.property.test.js` — over random input sequences, no death streak.
+  This is the general form of the apparition and void bugs.
+
 ## Level format
 
 Levels are a compact array-of-arrays, v2:

@@ -172,6 +172,47 @@ def shortest_path(grid):
     return None
 
 
+def visible_wall_bits(grid, cell):
+    """What the player is shown: real walls XOR the lie."""
+    return grid.walls[cell] ^ grid.liar.get(cell, 0)
+
+
+def visibly_solvable(grid):
+    """
+    Is there a route to the exit in the maze *as drawn*?
+
+    Liar walls make the drawn maze and the real maze disagree, which is the
+    point. But if the drawn maze has no route at all, the player is not being
+    deceived, they are being told the game is broken — and they are right to
+    stop playing. Eight of twenty-five levels shipped that way.
+    """
+    seen = {grid.start}
+    queue = deque([grid.start])
+
+    while queue:
+        cell = queue.popleft()
+        if cell == grid.end:
+            return True
+        for side in ("top", "right", "bottom", "left"):
+            if visible_wall_bits(grid, cell) & SIDE_BITS[side]:
+                continue
+            gate_dir = grid.gate.get(cell)
+            if gate_dir and GATE_BLOCKS.get(gate_dir) == side:
+                continue
+            dx, dy = DELTA[side]
+            nxt = (cell[0] + dx, cell[1] + dy)
+            if not grid.in_bounds(nxt):
+                continue
+            if visible_wall_bits(grid, nxt) & SIDE_BITS[OPPOSITE[side]]:
+                continue
+            if nxt in seen:
+                continue
+            seen.add(nxt)
+            queue.append(nxt)
+
+    return grid.end in seen
+
+
 def reachable_from(grid, origin):
     seen = {origin}
     queue = deque([origin])
@@ -356,8 +397,23 @@ def place_liar_walls(grid, solution, count, rng):
             break
         if cell in used or nxt in used:
             continue
+
         grid.liar[cell] = grid.liar.get(cell, 0) | SIDE_BITS[side]
         grid.liar[nxt] = grid.liar.get(nxt, 0) | SIDE_BITS[OPPOSITE[side]]
+
+        # A phantom wall that seals the apparent maze does not read as a lie, it
+        # reads as a broken game — the player sees no way forward and stops. The
+        # drawn maze must always offer a route; the lie makes that route wrong
+        # or hides a better one, it never removes every route.
+        if not visibly_solvable(grid):
+            grid.liar[cell] &= ~SIDE_BITS[side]
+            grid.liar[nxt] &= ~SIDE_BITS[OPPOSITE[side]]
+            if not grid.liar[cell]:
+                del grid.liar[cell]
+            if not grid.liar[nxt]:
+                del grid.liar[nxt]
+            continue
+
         used.add(cell)
         used.add(nxt)
         placed += 1
@@ -505,6 +561,9 @@ def validate(grid, level_name):
 
     if grid.end not in reachable:
         problems.append("exit not reachable")
+
+    if not visibly_solvable(grid):
+        problems.append("the maze as DRAWN has no route to the exit")
 
     return problems, path
 

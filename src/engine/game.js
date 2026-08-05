@@ -137,8 +137,15 @@ function killPlayer(game, cause, at) {
     )
   }
 
-  if (game.era === 'sadistic' && game.deaths >= CORRUPTION_DEATH_THRESHOLD && !game.corruptionActive) {
+  // The void is per attempt. It eats outward from the spawn point, so a void
+  // that persisted across deaths would corrupt the cells next to the start and
+  // then kill the player on the first step of every later attempt, forever —
+  // an unwinnable level and an unbreakable respawn loop. Each respawn gets a
+  // clean maze and a fresh interval before the first ring appears; it re-arms
+  // immediately, because the death count that armed it has not gone away.
+  if (game.era === 'sadistic' && game.deaths >= CORRUPTION_DEATH_THRESHOLD) {
     game.corruptionActive = true
+    game.corrupted = new Set()
     game.corruptionFrontier = [{ x: game.grid.start.x, y: game.grid.start.y }]
     game.lastCorruptionTick = game.now
   }
@@ -149,7 +156,8 @@ function killPlayer(game, cause, at) {
     game.exitUnlocked = game.fakeExitsTotal === 0
   }
 
-  resetStalker(game.stalker)
+  // the ten-second grace period restarts from this respawn
+  resetStalker(game.stalker, game.now)
 
   game.lastQuip = CAUSE_QUIPS[cause] || DEATH_QUIPS[game.deaths % DEATH_QUIPS.length]
 
@@ -266,7 +274,7 @@ function restartGame(game) {
   game.corruptionFrontier = []
   game.lastCorruptionTick = 0
   game.lastSample = 0
-  resetStalker(game.stalker)
+  resetStalker(game.stalker, 0)
 }
 
 /**

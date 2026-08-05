@@ -143,10 +143,23 @@ function stepBall(ball, input, grid, closedGates) {
   let hitX = false
   let hitY = false
 
+  // Move one axis at a time and resolve after each.
+  //
+  // Advancing both axes together and resolving once lets the ball cut a
+  // diagonal corner: travelling down-right out of a cell whose right and bottom
+  // are both walled, it lands in the diagonal neighbour without either axis
+  // check ever seeing an illegal position, because the position it is checked
+  // at is already past the junction. Separating the axes means each move is
+  // tested from a cell the ball legitimately occupies, so the wall it would
+  // have to cross is the wall of the cell it is actually in.
   for (let i = 0; i < SUBSTEPS; i++) {
-    const resolved = resolveCollisions(
-      ball.x + stepVx, ball.y + stepVy, ball.radius, grid, closedGates
-    )
+    let resolved = resolveCollisions(ball.x + stepVx, ball.y, ball.radius, grid, closedGates)
+    ball.x = resolved.x
+    ball.y = resolved.y
+    if (resolved.hitX) hitX = true
+    if (resolved.hitY) hitY = true
+
+    resolved = resolveCollisions(ball.x, ball.y + stepVy, ball.radius, grid, closedGates)
     ball.x = resolved.x
     ball.y = resolved.y
     if (resolved.hitX) hitX = true

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { decodeGrid } from './levelFormat'
+import { decodeGrid, visibleWalls } from './levelFormat'
 import { RETIRED_MODIFIERS, MODIFIER_TYPES } from './obstacles'
 import { LEVELS as HAND_CRAFTED } from './levels'
 
@@ -73,6 +73,37 @@ function solve(grid) {
   return null
 }
 
+/** BFS over the maze *as drawn*, i.e. with liar walls applied. */
+function solveVisible(grid) {
+  const visible = (cell) => visibleWalls(cell)
+  const bits = (cell) => {
+    const w = visible(cell)
+    return (w.top ? 1 : 0) | (w.right ? 2 : 0) | (w.bottom ? 4 : 0) | (w.left ? 8 : 0)
+  }
+
+  const seen = new Set([`${grid.start.x},${grid.start.y}`])
+  const queue = [[grid.start.x, grid.start.y]]
+
+  while (queue.length) {
+    const [x, y] = queue.shift()
+    if (x === grid.end.x && y === grid.end.y) return true
+    const cell = cellAt(grid, x, y)
+    for (const side of SIDES) {
+      if (bits(cell) & side.bit) continue
+      if (cell.gate && GATE_BLOCKS[cell.gate.direction] === side.name) continue
+      const next = cellAt(grid, x + side.dx, y + side.dy)
+      if (!next) continue
+      if (bits(next) & side.opposite) continue
+      const key = `${x + side.dx},${y + side.dy}`
+      if (seen.has(key)) continue
+      seen.add(key)
+      queue.push([x + side.dx, y + side.dy])
+    }
+  }
+
+  return false
+}
+
 function reachable(grid) {
   const seen = new Set([`${grid.start.x},${grid.start.y}`])
   const queue = [[grid.start.x, grid.start.y]]
@@ -124,6 +155,28 @@ describe('solvability', () => {
         expect(seen.has(`${cell.x},${cell.y}`), `${level.name} (${cell.x},${cell.y})`).toBe(true)
       }
     }
+  })
+})
+
+describe('legibility', () => {
+  /**
+   * A liar wall that seals the drawn maze does not read as deception, it reads
+   * as a broken game — and the player is right to stop. Eight of twenty-five
+   * levels shipped with no visible route to the exit, including the second
+   * level of the second chapter.
+   */
+  it('always shows the player some route to the exit', () => {
+    for (const level of decoded) {
+      expect(
+        solveVisible(level.grid),
+        `${level.name}: the maze as drawn has no route to the exit`
+      ).toBe(true)
+    }
+  })
+
+  it('still lies somewhere — the drawn maze is not just the real one', () => {
+    const lying = decoded.filter((l) => l.grid.cells.some((c) => c.liarWalls))
+    expect(lying.length).toBeGreaterThan(decoded.length / 2)
   })
 })
 
