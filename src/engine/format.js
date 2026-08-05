@@ -44,13 +44,12 @@ function getGrade(deaths, seconds) {
 function threatPills(hud) {
   const pills = []
 
-  if (hud.fakeExitsTotal > 0) {
+  // flags have their own HUD tile; only the unlock moment needs announcing
+  if (hud.flagsTotal > 0 && hud.exitUnlocked) {
     pills.push({
       key: 'exits',
-      className: hud.exitUnlocked ? 'pill pill--unlocked' : 'pill',
-      text: hud.exitUnlocked
-        ? '\u{2705} exit unlocked'
-        : `\u{1F512} ${hud.fakeExitsFound}/${hud.fakeExitsTotal} false exits found`,
+      className: 'pill pill--unlocked',
+      text: '\u{2705} exit unlocked',
     })
   }
 

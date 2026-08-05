@@ -32,9 +32,37 @@ const COLORS = {
 }
 
 /** Sizes as a fraction of one cell, so everything scales together. */
-const WALL_WIDTH = 0.09
+const WALL_WIDTH = 0.07
+const WALL_SHADOW_OFFSET = 0.02
 const MARKER_INSET = 0.1
 const MARKER_RADIUS = 0.17
+
+/**
+ * Where the ball's ink actually lands.
+ *
+ * The physics clamps the ball's centre to exactly one radius from a wall, so
+ * any ink drawn beyond that radius reads as the ball sinking into the wall even
+ * though the collision is exact. The rim used to be stroked *on* the circle,
+ * which put half its width outside the collision radius; combined with the
+ * wall stroke sitting astride the boundary and a shadow offset downward into
+ * the cell, the ball visibly overlapped walls it was merely touching.
+ *
+ * `outerEdge` must never exceed the collision radius. `ballDrawMetrics` exists
+ * so that relationship can be asserted in a test rather than eyeballed.
+ */
+function ballDrawMetrics(radius, cellSize) {
+  const r = radius * cellSize
+  const rimWidth = Math.max(1.5, cellSize * 0.07)
+  // stroke centred on a path inset by half the rim, so the rim's outer edge
+  // lands exactly on the collision radius
+  const rimRadius = Math.max(r * 0.35, r - rimWidth / 2)
+  return {
+    fillRadius: r,
+    rimRadius,
+    rimWidth,
+    outerEdge: rimRadius + rimWidth / 2,
+  }
+}
 
 function roundRect(ctx, x, y, w, h, r) {
   ctx.beginPath()
@@ -158,7 +186,7 @@ function drawWalls(ctx, grid, cellSize) {
   // chunky and hand-drawn rather than as hairlines.
   for (let pass = 0; pass < 2; pass++) {
     ctx.strokeStyle = pass === 0 ? COLORS.wallShadow : COLORS.wall
-    const dy = pass === 0 ? Math.max(1, cellSize * 0.05) : 0
+    const dy = pass === 0 ? Math.max(1, cellSize * WALL_SHADOW_OFFSET) : 0
 
     for (const cell of grid.cells) {
       // liar walls invert the visual on the sides that lie
@@ -241,27 +269,28 @@ function drawMaze(ctx, grid, cellSize, options = {}) {
 function drawBall(ctx, ball, cellSize) {
   const x = ball.x * cellSize
   const y = ball.y * cellSize
-  const radius = ball.radius * cellSize
+  const { fillRadius, rimRadius, rimWidth } = ballDrawMetrics(ball.radius, cellSize)
 
   ctx.save()
   ctx.shadowColor = 'rgba(45, 51, 74, 0.18)'
   ctx.shadowBlur = cellSize * 0.35
-  ctx.shadowOffsetY = cellSize * 0.1
+  ctx.shadowOffsetY = cellSize * 0.08
   ctx.fillStyle = COLORS.ball
   ctx.beginPath()
-  ctx.arc(x, y, radius, 0, Math.PI * 2)
+  ctx.arc(x, y, fillRadius, 0, Math.PI * 2)
   ctx.fill()
   ctx.restore()
 
+  // rim inset so its outer edge is the collision radius, not beyond it
   ctx.strokeStyle = COLORS.ballRim
-  ctx.lineWidth = Math.max(1.5, cellSize * 0.07)
+  ctx.lineWidth = rimWidth
   ctx.beginPath()
-  ctx.arc(x, y, radius, 0, Math.PI * 2)
+  ctx.arc(x, y, rimRadius, 0, Math.PI * 2)
   ctx.stroke()
 
   ctx.fillStyle = COLORS.ballShine
   ctx.beginPath()
-  ctx.arc(x - radius * 0.25, y - radius * 0.25, radius * 0.34, 0, Math.PI * 2)
+  ctx.arc(x - fillRadius * 0.25, y - fillRadius * 0.25, fillRadius * 0.34, 0, Math.PI * 2)
   ctx.fill()
 }
 
@@ -315,6 +344,9 @@ function drawTrapFlash(ctx, flash, cellSize) {
 
 export {
   COLORS,
+  WALL_WIDTH,
+  WALL_SHADOW_OFFSET,
+  ballDrawMetrics,
   setupCanvas,
   drawMaze,
   drawBall,

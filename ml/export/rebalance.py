@@ -67,6 +67,20 @@ BUDGETS = {
     "sadistic": dict(fog=3.5, traps=(3, 6), fakes=(2, 3), liars=(3, 4), mimics=(1, 2), wipes=(1, 2)),
 }
 
+# The apparition retraces your exact path ten seconds behind, so it punishes
+# backtracking. Fog *requires* backtracking: you cannot see a dead end until you
+# are in it. Putting both on one level asks the player to do and not do the same
+# thing, and it was on all twenty-three non-learning levels because it was
+# switched on by era rather than designed in.
+#
+# It is a level property now, and it replaces fog rather than joining it. These
+# are the levels that hunt you instead of blinding you.
+# Chosen by measurement, not taste: these are the levels a blind simulated
+# player still finishes while being hunted. "No Mercy 11" was in this set and
+# came out — 41 apparition deaths and no finish — so it went back to being a
+# fog level.
+APPARITION_LEVELS = {"No Mercy 3", "No Mercy 7"}
+
 
 class Grid:
     """A decoded level, indexed by (x, y)."""
@@ -211,6 +225,55 @@ def visibly_solvable(grid):
             queue.append(nxt)
 
     return grid.end in seen
+
+
+def safe_reachable(grid):
+    """
+    Cells a player can reach from the start without ever stepping on something
+    lethal.
+
+    Traps and mimics are avoidable in principle — that is the memorisation loop —
+    but only if avoiding them still leaves a route. When every route to a flag
+    runs through a trap, the player has to die to capture it, and on the harder
+    death modes dying wipes the flags they had. Three levels shipped that way and
+    were unwinnable in the strict sense, not merely hard.
+    """
+    seen = {grid.start}
+    queue = deque([grid.start])
+
+    while queue:
+        cell = queue.popleft()
+        for side in ("top", "right", "bottom", "left"):
+            if grid.walls[cell] & SIDE_BITS[side]:
+                continue
+            gate_dir = grid.gate.get(cell)
+            if gate_dir and GATE_BLOCKS.get(gate_dir) == side:
+                continue
+            dx, dy = DELTA[side]
+            nxt = (cell[0] + dx, cell[1] + dy)
+            if not grid.in_bounds(nxt):
+                continue
+            if grid.walls[nxt] & SIDE_BITS[OPPOSITE[side]]:
+                continue
+            if grid.flags.get(nxt, 0) & (FLAG_TRAP | FLAG_MIMIC):
+                continue
+            if nxt in seen:
+                continue
+            seen.add(nxt)
+            queue.append(nxt)
+
+    return seen
+
+
+def objectives_still_safe(grid):
+    """Every flag and the exit reachable without dying on the way."""
+    safe = safe_reachable(grid)
+    if grid.end not in safe:
+        return False
+    for cell, modifier in grid.modifier.items():
+        if modifier == "fakeExit" and cell not in safe:
+            return False
+    return True
 
 
 def reachable_from(grid, origin):
@@ -441,10 +504,15 @@ def place_mimics(grid, solution, count, rng):
     candidates.sort(key=lambda c: -(depths[c] + from_start.get(c, 0) * 0.1))
 
     placed = 0
-    for cell in candidates[: count * 3]:
+    for cell in candidates:
         if placed >= count:
             break
         grid.flags[cell] = grid.flags.get(cell, 0) | FLAG_MIMIC
+        if not objectives_still_safe(grid):
+            grid.flags[cell] &= ~FLAG_MIMIC
+            if not grid.flags[cell]:
+                del grid.flags[cell]
+            continue
         placed += 1
     return placed
 
@@ -494,6 +562,13 @@ def place_traps(grid, solution, count, rng):
         if placed >= count:
             break
         grid.flags[cell] = grid.flags.get(cell, 0) | FLAG_TRAP
+        # a trap that walls off a flag or the exit is not difficulty, it is a
+        # dead level
+        if not objectives_still_safe(grid):
+            grid.flags[cell] &= ~FLAG_TRAP
+            if not grid.flags[cell]:
+                del grid.flags[cell]
+            continue
         placed += 1
     return placed
 
@@ -565,6 +640,9 @@ def validate(grid, level_name):
     if not visibly_solvable(grid):
         problems.append("the maze as DRAWN has no route to the exit")
 
+    if not objectives_still_safe(grid):
+        problems.append("a flag or the exit can only be reached by dying")
+
     return problems, path
 
 
@@ -585,12 +663,18 @@ def rebalance_level(level, rng):
     clear_obstacles(grid)
 
     liars = place_liar_walls(grid, path, rng.randint(*budget["liars"]), rng)
+
+    # Flags are placed before anything lethal, so that every trap and mimic can
+    # be checked against "can the player still reach every objective without
+    # dying". Placing them afterwards meant a trap could be dropped on the only
+    # route to a flag that did not exist yet.
+    fakes = place_false_exits(grid, path, rng.randint(*budget["fakes"]), rng)
+
     mimics = place_mimics(grid, path, rng.randint(*budget["mimics"]), rng)
     traps = place_traps(grid, path, rng.randint(*budget["traps"]), rng)
     wipes = 0
     if budget["fog"] is not None:
         wipes = place_memory_wipes(grid, path, rng.randint(*budget["wipes"]), rng)
-    fakes = place_false_exits(grid, path, rng.randint(*budget["fakes"]), rng)
 
     return grid, {
         "liars": liars, "mimics": mimics, "traps": traps,
@@ -703,7 +787,9 @@ def main():
 
         # Chapters named for a mechanic must actually have it. "The Fog" had
         # three levels with fog_radius null.
-        level["fog_radius"] = budget["fog"]
+        hunted = level["name"] in APPARITION_LEVELS
+        level["apparition"] = hunted
+        level["fog_radius"] = None if hunted else budget["fog"]
 
         for key in totals:
             totals[key] += stats[key]

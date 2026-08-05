@@ -13,7 +13,7 @@ function countObstacles(grid) {
 
   for (const cell of grid.cells) {
     if (cell.trap) counts.traps++
-    if (cell.modifier === 'fakeExit') counts.fakeExits++
+    if (cell.modifier === 'fakeExit') counts.fakeExits++  // flags, in player-facing language
     if (cell.mimic) counts.mimics++
     if (cell.liarWalls) counts.liars++
     if (cell.memoryWipe) counts.wipes++
@@ -30,13 +30,11 @@ function levelTags(level) {
   if (level.fogRadius) tags.push({ kind: 'hide', text: 'fog' })
   if (c.traps) tags.push({ kind: 'hide', text: `${c.traps} hidden` })
   if (c.wipes) tags.push({ kind: 'hide', text: 'memory wipe' })
-  if (c.fakeExits) tags.push({ kind: 'deceive', text: `${c.fakeExits} false exits` })
+  if (c.fakeExits) tags.push({ kind: 'deceive', text: `${c.fakeExits} flags` })
   if (c.mimics) tags.push({ kind: 'deceive', text: `${c.mimics} mimic${c.mimics > 1 ? 's' : ''}` })
   if (c.liars) tags.push({ kind: 'deceive', text: 'liar walls' })
   if (c.gates) tags.push({ kind: 'commit', text: `${c.gates} one-way` })
-  if (level.era === 'punishing' || level.era === 'sadistic') {
-    tags.push({ kind: 'commit', text: 'apparition' })
-  }
+  if (level.apparition) tags.push({ kind: 'commit', text: 'apparition' })
 
   return tags
 }

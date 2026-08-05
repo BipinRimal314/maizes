@@ -12,7 +12,11 @@
  * while the game was paused.
  */
 
-const STALKER_DELAY_MS = 10000
+// Twenty seconds, not ten. The apparition is meant to punish backtracking and
+// hesitation, but ten seconds is shorter than it takes to read an unfamiliar
+// junction, so it was punishing ordinary play. A blind simulated player died to
+// it 73 times on a single level and never finished.
+const STALKER_DELAY_MS = 20000
 const STALKER_SAMPLE_MS = 100
 const STALKER_CATCH_RADIUS = 0.6   // cells — must overlap the ball, not merely be near
 

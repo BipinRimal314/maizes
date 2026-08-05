@@ -52,7 +52,8 @@ const CAUSE_QUIPS = {
   wipe: 'your memory has been wiped.',
 }
 
-function countFakeExits(grid) {
+/** Flags are the collectibles that unlock the exit (`fakeExit` in level data). */
+function countFlags(grid) {
   let n = 0
   for (const cell of grid.cells) if (cell.modifier === 'fakeExit') n++
   return n
@@ -61,7 +62,7 @@ function countFakeExits(grid) {
 function createGame(grid, options = {}) {
   const era = options.era || 'learning'
   const baseFog = options.fogRadius ?? null
-  const fakeExitsTotal = countFakeExits(grid)
+  const flagsTotal = countFlags(grid)
 
   return {
     grid,
@@ -79,9 +80,9 @@ function createGame(grid, options = {}) {
     baseFogRadius: baseFog,
     fogRadius: baseFog,
 
-    fakeExitsTotal,
-    fakeExitsCollected: new Set(),
-    exitUnlocked: fakeExitsTotal === 0,
+    flagsTotal,
+    flagsCaptured: new Set(),
+    exitUnlocked: flagsTotal === 0,
     psycheUntil: -1,
 
     visited: new Set(),
@@ -96,7 +97,7 @@ function createGame(grid, options = {}) {
     corruptionFrontier: [],
     lastCorruptionTick: 0,
 
-    stalker: createStalker(era === 'punishing' || era === 'sadistic'),
+    stalker: createStalker(options.apparition === true),
 
     lastSample: 0,
 
@@ -150,10 +151,10 @@ function killPlayer(game, cause, at) {
     game.lastCorruptionTick = game.now
   }
 
-  // 'progress' keeps collected false exits; anything harsher makes you redo them
+  // 'progress' keeps captured flags; anything harsher makes you redo them
   if (game.deathMode !== 'progress') {
-    game.fakeExitsCollected.clear()
-    game.exitUnlocked = game.fakeExitsTotal === 0
+    game.flagsCaptured.clear()
+    game.exitUnlocked = game.flagsTotal === 0
   }
 
   // the ten-second grace period restarts from this respawn
@@ -165,16 +166,24 @@ function killPlayer(game, cause, at) {
   if (game.onDeath) game.onDeath(cause, at)
 }
 
-function collectFakeExit(game, at) {
+/**
+ * Capture a flag. It still throws you back to the start — that is the joke —
+ * but it is progress, not a death.
+ *
+ * This used to increment `game.deaths`, which meant the counter labelled
+ * "setbacks" went up every time the player did the one thing the level was
+ * asking of them, and the grade docked them three points for it. Flags and
+ * deaths are counted separately now.
+ */
+function captureFlag(game, at) {
   const key = `${at.x},${at.y}`
-  if (game.fakeExitsCollected.has(key)) return
+  if (game.flagsCaptured.has(key)) return
 
-  game.fakeExitsCollected.add(key)
-  game.exitUnlocked = game.fakeExitsCollected.size >= game.fakeExitsTotal
+  game.flagsCaptured.add(key)
+  game.exitUnlocked = game.flagsCaptured.size >= game.flagsTotal
   game.psycheUntil = game.now + PSYCHE_MS
-  game.deaths += 1
   game.ball = createBallState(game.grid)
-  game.lastQuip = 'psyche.'
+  game.lastQuip = game.exitUnlocked ? 'all flags captured. the exit is open.' : 'psyche.'
   emit(game, 'fail')
 }
 
@@ -206,7 +215,7 @@ function stepGame(game) {
 
   const modifier = checkModifier(ball, grid)
   if (modifier && modifier.type === 'fakeExit') {
-    collectFakeExit(game, modifier)
+    captureFlag(game, modifier)
     return
   }
 
@@ -261,8 +270,8 @@ function restartGame(game) {
   game.won = false
   game.deaths = 0
   game.fogRadius = game.baseFogRadius
-  game.fakeExitsCollected.clear()
-  game.exitUnlocked = game.fakeExitsTotal === 0
+  game.flagsCaptured.clear()
+  game.exitUnlocked = game.flagsTotal === 0
   game.psycheUntil = -1
   game.visited.clear()
   game.closedGates.clear()
@@ -288,8 +297,8 @@ function hudSnapshot(game) {
     paused: game.paused,
     deaths: game.deaths,
     fogRadius: game.fogRadius,
-    fakeExitsTotal: game.fakeExitsTotal,
-    fakeExitsFound: game.fakeExitsCollected.size,
+    flagsTotal: game.flagsTotal,
+    flagsCaptured: game.flagsCaptured.size,
     exitUnlocked: game.exitUnlocked,
     lastQuip: game.lastQuip,
     psycheActive: game.now < game.psycheUntil,
@@ -308,5 +317,5 @@ export {
   restartGame,
   killPlayer,
   hudSnapshot,
-  countFakeExits,
+  countFlags,
 }

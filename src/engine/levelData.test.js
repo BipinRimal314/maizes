@@ -244,10 +244,16 @@ describe('level shape', () => {
 })
 
 describe('chapters deliver what they are named for', () => {
-  it('gives every punishing and sadistic level fog', () => {
-    for (const level of decoded) {
+  it('gives every punishing and sadistic level fog, or an apparition instead', () => {
+    // A level denies you information either by blinding you or by hunting you.
+    // It must do one; it must not do both, because fog forces the backtracking
+    // the apparition punishes.
+    for (const level of curated) {
       if (level.era === 'learning') continue
-      expect(level.fogRadius, `${level.name} is "${level.era}" with no fog`).toBeGreaterThan(0)
+      const blinded = (level.fog_radius ?? 0) > 0
+      const hunted = level.apparition === true
+      expect(blinded || hunted, `${level.name} is "${level.era}" with neither fog nor an apparition`).toBe(true)
+      expect(blinded && hunted, `${level.name} has both fog and an apparition`).toBe(false)
     }
   })
 

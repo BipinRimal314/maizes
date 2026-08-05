@@ -29,6 +29,7 @@ async function loadAllLevels() {
     era: 'learning',
     fogRadius: null,
     deathMode: 'progress',
+    apparition: false,
   }))
 
   // chapters 2+: curated ML levels
@@ -57,6 +58,7 @@ async function loadAllLevels() {
         era: level.era || 'learning',
         fogRadius: level.fog_radius ?? null,
         deathMode: level.death_mode || 'progress',
+        apparition: level.apparition === true,
       })
     }
   } catch (e) {

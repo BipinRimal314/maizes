@@ -36,7 +36,7 @@ const ERA_REASSURANCE = {
 
 function MazeSolver({
   levelGrid, levelNumber, levelName, levelEra, levelFogRadius, levelDeathMode,
-  onBack, onNextLevel,
+  levelApparition, onBack, onNextLevel,
 }) {
   const grid = useMemo(
     () => levelGrid || decodeFromHash(window.location.hash.slice(1)),
@@ -57,6 +57,7 @@ function MazeSolver({
       era: levelEra,
       fogRadius: levelFogRadius,
       deathMode: levelDeathMode,
+      apparition: levelApparition,
       onSound: playSound,
       onDeath: (cause, at) => {
         box.session = recordDeath(box.session, at ? at.x : 0, at ? at.y : 0, cause)

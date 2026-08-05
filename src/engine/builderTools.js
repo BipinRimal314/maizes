@@ -22,7 +22,7 @@ const TOOLS = [
 ]
 
 const OBSTACLES = [
-  { id: 'fakeExit', label: '\u{1F3C6}', name: 'false exit', kind: 'deceive', hint: 'looks like the exit, sends you home' },
+  { id: 'fakeExit', label: '\u{1F3C6}', name: 'flag', kind: 'deceive', hint: 'capture every flag to unlock the exit — each one sends you home' },
   { id: 'mimic', label: '\u{1F480}', name: 'mimic', kind: 'deceive', hint: 'looks like the exit, kills you' },
   { id: 'trap', label: '\u{1F573}\u{FE0F}', name: 'trap', kind: 'hide', hint: 'invisible until it kills you' },
   { id: 'memoryWipe', label: '\u{1F32C}\u{FE0F}', name: 'memory wipe', kind: 'hide', hint: 'erases what you have mapped' },

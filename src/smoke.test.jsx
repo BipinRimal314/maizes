@@ -140,6 +140,7 @@ describe('the solver mounts and runs', () => {
         levelEra="sadistic"
         levelFogRadius={3.5}
         levelDeathMode="cumulative"
+        levelApparition
         onBack={() => {}}
         onNextLevel={() => {}}
       />
@@ -165,7 +166,7 @@ describe('the builder mounts', () => {
   it('offers the obstacles the engine implements, and none it does not', async () => {
     const view = await mount(<MazeBuilder onBack={() => {}} />)
 
-    for (const label of ['liar wall', 'mimic', 'trap', 'memory wipe', 'false exit']) {
+    for (const label of ['liar wall', 'mimic', 'trap', 'memory wipe', 'flag']) {
       expect(view.text, `builder is missing "${label}"`).toContain(label)
     }
     for (const retired of ['ice', 'gravity', 'spinner', 'fart', 'teleporter']) {

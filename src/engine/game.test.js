@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { createGrid, setModifier, setGate } from './maze'
-import { createGame, stepGame, restartGame, hudSnapshot, STEP_MS, countFakeExits } from './game'
+import { createGame, stepGame, restartGame, hudSnapshot, STEP_MS, countFlags } from './game'
 
 const SECOND = Math.round(1000 / STEP_MS)
 
@@ -46,12 +46,12 @@ describe('deaths', () => {
   })
 })
 
-describe('false exits', () => {
+describe('flags', () => {
   it('counts them up front', () => {
     let grid = createGrid(5, 1)
     grid = setModifier(grid, 2, 0, 'fakeExit')
     grid = setModifier(grid, 3, 0, 'fakeExit')
-    expect(countFakeExits(grid)).toBe(2)
+    expect(countFlags(grid)).toBe(2)
   })
 
   it('keeps the exit locked until every one is found', () => {
@@ -65,7 +65,7 @@ describe('false exits', () => {
 
     run(game, 900, 'right')
 
-    expect(game.fakeExitsCollected.size).toBe(2)
+    expect(game.flagsCaptured.size).toBe(2)
     expect(game.exitUnlocked).toBe(true)
   })
 
@@ -73,18 +73,28 @@ describe('false exits', () => {
     expect(createGame(createGrid(4, 4)).exitUnlocked).toBe(true)
   })
 
-  it('sends you home and does not re-trigger on the same tile', () => {
+  it('sends you home but does not count as a death', () => {
     let grid = createGrid(6, 1)
     grid = setModifier(grid, 2, 0, 'fakeExit')
     const game = createGame(grid)
 
     run(game, 300, 'right')
-    const afterFirst = game.deaths
 
-    // walking over an already-collected false exit costs nothing more
+    expect(game.flagsCaptured.size).toBe(1)
+    // capturing a flag is the objective, not a failure
+    expect(game.deaths).toBe(0)
+  })
+
+  it('does not re-trigger on a flag already captured', () => {
+    let grid = createGrid(6, 1)
+    grid = setModifier(grid, 2, 0, 'fakeExit')
+    const game = createGame(grid)
+
     run(game, 300, 'right')
-    expect(game.fakeExitsCollected.size).toBe(1)
-    expect(game.deaths).toBe(afterFirst)
+    run(game, 300, 'right')
+
+    expect(game.flagsCaptured.size).toBe(1)
+    expect(game.deaths).toBe(0)
   })
 
   // These two place the ball on the tile rather than driving it there, so the
@@ -99,11 +109,11 @@ describe('false exits', () => {
 
     game.ball.x = 2.5
     stepGame(game)
-    expect(game.fakeExitsCollected.size).toBe(1)
+    expect(game.flagsCaptured.size).toBe(1)
 
     game.ball.x = 4.5
     stepGame(game)
-    expect(game.fakeExitsCollected.size).toBe(0)
+    expect(game.flagsCaptured.size).toBe(0)
     expect(game.exitUnlocked).toBe(false)
   })
 
@@ -116,11 +126,11 @@ describe('false exits', () => {
 
     game.ball.x = 2.5
     stepGame(game)
-    expect(game.fakeExitsCollected.size).toBe(1)
+    expect(game.flagsCaptured.size).toBe(1)
 
     game.ball.x = 4.5
     stepGame(game)
-    expect(game.fakeExitsCollected.size).toBe(1)
+    expect(game.flagsCaptured.size).toBe(1)
   })
 })
 
@@ -257,10 +267,11 @@ describe('escalation', () => {
     expect(game.fogRadius).toBe(4)
   })
 
-  it('arms the apparition only in the harder eras', () => {
-    expect(createGame(createGrid(4, 4), { era: 'learning' }).stalker.enabled).toBe(false)
-    expect(createGame(createGrid(4, 4), { era: 'punishing' }).stalker.enabled).toBe(true)
-    expect(createGame(createGrid(4, 4), { era: 'sadistic' }).stalker.enabled).toBe(true)
+  it('arms the apparition from level design, not from the era', () => {
+    // it used to be switched on by era, which put it on 23 of 25 levels
+    expect(createGame(createGrid(4, 4), { era: 'sadistic' }).stalker.enabled).toBe(false)
+    expect(createGame(createGrid(4, 4), { era: 'punishing' }).stalker.enabled).toBe(false)
+    expect(createGame(createGrid(4, 4), { era: 'learning', apparition: true }).stalker.enabled).toBe(true)
   })
 })
 
@@ -281,14 +292,14 @@ describe('restart', () => {
     expect(game.now).toBe(0)
     expect(game.visited.size).toBe(0)
     expect(game.closedGates.size).toBe(0)
-    expect(game.fakeExitsCollected.size).toBe(0)
+    expect(game.flagsCaptured.size).toBe(0)
     expect(JSON.stringify(grid)).toBe(snapshot)
   })
 })
 
 describe('hud snapshot', () => {
   it('is flat primitives so React can skip identical updates', () => {
-    const game = createGame(createGrid(5, 5), { era: 'sadistic', fogRadius: 3 })
+    const game = createGame(createGrid(5, 5), { era: 'sadistic', fogRadius: 3, apparition: true })
     const hud = hudSnapshot(game)
 
     for (const value of Object.values(hud)) {

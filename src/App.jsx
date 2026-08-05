@@ -79,6 +79,7 @@ function App() {
           levelEra={level.era}
           levelFogRadius={level.fogRadius}
           levelDeathMode={level.deathMode}
+          levelApparition={level.apparition}
           onBack={handleBack}
           onNextLevel={hasNext ? handleNextLevel : null}
         />
