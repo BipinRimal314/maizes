@@ -22,6 +22,22 @@ That is all of them. **Captured flags are never lost**, including on death —
 that one rule removes the whole class of "you must die to make progress, but
 dying undoes your progress".
 
+## The campaign
+
+Twenty levels in five chapters. Fog arrives at level 8 and only ever tightens:
+
+| levels | chapter | flags | traps | fog |
+|---|---|---|---|---|
+| 1–4 | Warm Up | 1 | — | — |
+| 5–7 | Two Trips | 2 | 2 | — |
+| 8–11 | First Light | 2 | 2 | 4.5 |
+| 12–15 | The Fog | 2 | 3 | 3.5 |
+| 16–20 | No Mercy | 3 | 5 | 3.0 |
+
+Level 8 is deliberately identical to level 7 in every way except the fog — same
+board size, same flag count, same trap count. One new variable at a time, so a
+player who suddenly finds it hard knows exactly what changed.
+
 ## Levels are proven, not authored
 
 No maze geometry is written by hand. A level is generated from a seed, then

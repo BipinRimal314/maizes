@@ -20,6 +20,13 @@ import { judge } from './oracle.js'
 const TIERS = {
   gentle: { cols: 10, rows: 10, loops: 0.06, flags: 1, traps: 0, fog: null },
   brisk: { cols: 12, rows: 12, loops: 0.08, flags: 2, traps: 2, fog: null },
+
+  // `misty` is `brisk` with fog and nothing else changed: same size, same flag
+  // count, same trap count. The only new thing on the level where fog arrives
+  // is the fog itself, so a player who suddenly finds it hard knows exactly
+  // what changed. The radius is generous here and tightens in later tiers.
+  misty: { cols: 12, rows: 12, loops: 0.08, flags: 2, traps: 2, fog: 4.5 },
+
   blind: { cols: 12, rows: 12, loops: 0.08, flags: 2, traps: 3, fog: 3.5 },
   cruel: { cols: 14, rows: 14, loops: 0.10, flags: 3, traps: 5, fog: 3.0 },
 }

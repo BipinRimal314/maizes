@@ -111,3 +111,57 @@ describe('generation is deterministic', () => {
     expect(a.grid.traps).toEqual(b.grid.traps)
   })
 })
+
+describe('the campaign ramp', () => {
+  const FIRST_FOG_LEVEL = 8
+
+  it('introduces fog at level 8', () => {
+    const firstFoggy = levels.findIndex((l) => l.fog !== null)
+    expect(firstFoggy + 1, 'first foggy level number').toBe(FIRST_FOG_LEVEL)
+  })
+
+  it('keeps every level before that clear', () => {
+    for (const level of levels.slice(0, FIRST_FOG_LEVEL - 1)) {
+      expect(level.fog, `${level.name}`).toBeNull()
+    }
+  })
+
+  it('never goes back to clear once fog arrives', () => {
+    for (const level of levels.slice(FIRST_FOG_LEVEL - 1)) {
+      expect(level.fog, `${level.name}`).toBeGreaterThan(0)
+    }
+  })
+
+  it('only tightens the fog, never loosens it', () => {
+    // the ramp is the design; a chapter that eased off would read as a bug
+    const radii = levels.filter((l) => l.fog !== null).map((l) => l.fog)
+    for (let i = 1; i < radii.length; i++) {
+      expect(radii[i], `level ${i}`).toBeLessThanOrEqual(radii[i - 1])
+    }
+  })
+
+  it('changes only the fog on the level that introduces it', () => {
+    // one new variable at a time: the level fog arrives on is otherwise
+    // identical in shape to the one before it
+    const before = levels[FIRST_FOG_LEVEL - 2]
+    const after = levels[FIRST_FOG_LEVEL - 1]
+    expect(after.c).toBe(before.c)
+    expect(after.r).toBe(before.r)
+    expect(after.f.length).toBe(before.f.length)
+    expect(after.t.length).toBe(before.t.length)
+    expect(before.fog).toBeNull()
+    expect(after.fog).toBeGreaterThan(0)
+  })
+
+  it('never gets easier for a blind player as it goes on', () => {
+    const byChapter = new Map()
+    for (const level of levels) {
+      const list = byChapter.get(level.chapter) || []
+      list.push(level.difficulty.blindDeaths)
+      byChapter.set(level.chapter, list)
+    }
+    const averages = [...byChapter.values()].map((d) => d.reduce((a, b) => a + b, 0) / d.length)
+    expect(averages[0]).toBeLessThanOrEqual(averages[averages.length - 1])
+    expect(averages[averages.length - 1]).toBeGreaterThan(averages[0])
+  })
+})
