@@ -1,84 +1,58 @@
-let audioCtx = null
+/**
+ * Procedural sound. No assets, everything is an oscillator.
+ *
+ * The context is created lazily and resumed on demand — browsers start it
+ * suspended until a gesture — and every call is wrapped, because audio is never
+ * worth crashing a frame over.
+ */
 
-function getAudioContext() {
-  if (!audioCtx) audioCtx = new AudioContext()
+let audioCtx = null
+let muted = false
+
+function context() {
+  if (audioCtx) return audioCtx
+  const Ctor = window.AudioContext || window.webkitAudioContext
+  if (!Ctor) return null
+  audioCtx = new Ctor()
   return audioCtx
 }
 
-function playSound(type) {
-  const ctx = getAudioContext()
-  const now = ctx.currentTime
-
-  switch (type) {
-    case 'fart': {
-      const osc = ctx.createOscillator()
-      const gain = ctx.createGain()
-      osc.type = 'sawtooth'
-      osc.frequency.setValueAtTime(120, now)
-      osc.frequency.exponentialRampToValueAtTime(40, now + 0.3)
-      gain.gain.setValueAtTime(0.3, now)
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4)
-      osc.connect(gain).connect(ctx.destination)
-      osc.start(now)
-      osc.stop(now + 0.4)
-      break
-    }
-    case 'victory': {
-      const notes = [523, 659, 784, 1047]
-      notes.forEach((freq, i) => {
-        const osc = ctx.createOscillator()
-        const gain = ctx.createGain()
-        osc.type = 'sine'
-        osc.frequency.value = freq
-        gain.gain.setValueAtTime(0.2, now + i * 0.12)
-        gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.12 + 0.3)
-        osc.connect(gain).connect(ctx.destination)
-        osc.start(now + i * 0.12)
-        osc.stop(now + i * 0.12 + 0.3)
-      })
-      break
-    }
-    case 'fail': {
-      const osc = ctx.createOscillator()
-      const gain = ctx.createGain()
-      osc.type = 'square'
-      osc.frequency.setValueAtTime(200, now)
-      osc.frequency.exponentialRampToValueAtTime(50, now + 0.5)
-      gain.gain.setValueAtTime(0.2, now)
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5)
-      osc.connect(gain).connect(ctx.destination)
-      osc.start(now)
-      osc.stop(now + 0.5)
-      break
-    }
-    case 'teleport': {
-      const osc = ctx.createOscillator()
-      const gain = ctx.createGain()
-      osc.type = 'sine'
-      osc.frequency.setValueAtTime(200, now)
-      osc.frequency.exponentialRampToValueAtTime(2000, now + 0.15)
-      osc.frequency.exponentialRampToValueAtTime(400, now + 0.3)
-      gain.gain.setValueAtTime(0.15, now)
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3)
-      osc.connect(gain).connect(ctx.destination)
-      osc.start(now)
-      osc.stop(now + 0.3)
-      break
-    }
-    case 'death': {
-      const osc = ctx.createOscillator()
-      const gain = ctx.createGain()
-      osc.type = 'sawtooth'
-      osc.frequency.setValueAtTime(300, now)
-      osc.frequency.exponentialRampToValueAtTime(80, now + 0.3)
-      gain.gain.setValueAtTime(0.15, now)
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3)
-      osc.connect(gain).connect(ctx.destination)
-      osc.start(now)
-      osc.stop(now + 0.3)
-      break
-    }
-  }
+function tone(ctx, { type = 'sine', from, to, gain, duration, delay = 0 }) {
+  const osc = ctx.createOscillator()
+  const amp = ctx.createGain()
+  const start = ctx.currentTime + delay
+  osc.type = type
+  osc.frequency.setValueAtTime(from, start)
+  if (to !== undefined && to !== from) osc.frequency.exponentialRampToValueAtTime(to, start + duration)
+  amp.gain.setValueAtTime(gain, start)
+  amp.gain.exponentialRampToValueAtTime(0.001, start + duration)
+  osc.connect(amp).connect(ctx.destination)
+  osc.start(start)
+  osc.stop(start + duration)
 }
 
-export { playSound }
+const VOICES = {
+  death: (ctx) => tone(ctx, { type: 'sawtooth', from: 300, to: 80, gain: 0.14, duration: 0.28 }),
+  capture: (ctx) => tone(ctx, { from: 660, to: 990, gain: 0.16, duration: 0.18 }),
+  unlock: (ctx) => [523, 659, 784].forEach((f, i) =>
+    tone(ctx, { from: f, gain: 0.16, duration: 0.24, delay: i * 0.09 })),
+  win: (ctx) => [523, 659, 784, 1047].forEach((f, i) =>
+    tone(ctx, { from: f, gain: 0.18, duration: 0.3, delay: i * 0.11 })),
+}
+
+function playSound(name) {
+  if (muted) return
+  const voice = VOICES[name]
+  if (!voice) return
+  try {
+    const ctx = context()
+    if (!ctx) return
+    if (ctx.state === 'suspended') ctx.resume()
+    voice(ctx)
+  } catch { /* blocked or missing audio must not break the loop */ }
+}
+
+const setMuted = (value) => { muted = value }
+const isMuted = () => muted
+
+export { playSound, setMuted, isMuted }

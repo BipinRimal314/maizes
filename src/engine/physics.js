@@ -1,279 +1,163 @@
-import { getCell } from './maze'
+/**
+ * Ball movement and collision.
+ *
+ * Carried over from the previous engine, which is the one part of it that
+ * property tests never found a fault in once these three things were true:
+ *
+ * 1. Everything is in CELL units. One cell is 1.0. Baking pixel size into
+ *    velocity and radius made the physics change with the render scale and made
+ *    a responsive canvas impossible.
+ *
+ * 2. Movement advances on a FIXED timestep (see loop.js). Applying acceleration
+ *    once per animation frame with no delta time made the ball move at double
+ *    speed on a 120Hz display — the game was a different difficulty depending
+ *    on the monitor.
+ *
+ * 3. Axes are resolved SEPARATELY. Advancing both and resolving once let the
+ *    ball cut a diagonal corner out of a cell whose two facing sides were both
+ *    walled: the position it got checked at was already past the junction.
+ *
+ * The constants are the original per-frame values and a step is 1/60s, so the
+ * feel at 60Hz is unchanged.
+ */
 
-function createBallState(grid, cellSize) {
+import { DIRECTIONS, inBounds, wallsAt, TOP, RIGHT, BOTTOM, LEFT } from './grid.js'
+
+const BALL_RADIUS = 0.3        // cells
+const ACCEL = 0.036            // cells per step^2
+const FRICTION = 0.82
+const MAX_SPEED = 0.42         // cells per step
+const BOUNCE = -0.3
+const SUBSTEPS = 4
+
+function createBall(grid) {
   return {
-    x: (grid.start.x + 0.5) * cellSize,
-    y: (grid.start.y + 0.5) * cellSize,
+    x: grid.start.x + 0.5,
+    y: grid.start.y + 0.5,
     vx: 0,
     vy: 0,
-    radius: cellSize * 0.3,
-    baseRadius: cellSize * 0.3,
-    deaths: 0,
-    reversed: false,
-    reversedUntil: 0,
-    fat: false,
-    onIce: false,
+    radius: BALL_RADIUS,
   }
 }
 
-function updateBall(ball, input, grid, cellSize, now) {
-  const speed = 3.6
-  const friction = 0.82
-  const iceFriction = 0.997
-
-  let { x, y, vx, vy } = ball
-  const reversed = ball.reversed && now < ball.reversedUntil
-
-  let dx = 0
-  let dy = 0
-  if (input.up) dy = -1
-  if (input.down) dy = 1
-  if (input.left) dx = -1
-  if (input.right) dx = 1
-
-  if (reversed) {
-    dx = -dx
-    dy = -dy
-  }
-
-  const cellX = Math.floor(x / cellSize)
-  const cellY = Math.floor(y / cellSize)
-  const cell = getCell(grid, cellX, cellY)
-  const onIce = cell && cell.modifier === 'ice'
-
-  if (onIce) {
-    // on ice: ignore new input, preserve momentum, no friction
-    // only apply input if ball is nearly stopped (to get unstuck)
-    const currentSpeed = Math.sqrt(vx * vx + vy * vy)
-    if (currentSpeed < 0.5) {
-      vx += dx * speed * 0.5
-      vy += dy * speed * 0.5
-    }
-    // no friction on ice — ball slides until it hits a wall
-  } else {
-    vx += dx * speed * 0.3
-    vy += dy * speed * 0.3
-    vx *= friction
-    vy *= friction
-  }
-
-  if (cell && cell.modifier === 'gravity') {
-    const centerX = (cellX + 0.5) * cellSize
-    const centerY = (cellY + 0.5) * cellSize
-    const pullDx = centerX - x
-    const pullDy = centerY - y
-
-    // strong pull that grabs you but can be escaped with sustained input
-    vx += pullDx * 0.06
-    vy += pullDy * 0.06
-    // dampen velocity inside the well
-    vx *= 0.95
-    vy *= 0.95
-  }
-
-  const maxSpeed = cellSize * 0.42
-  const spd = Math.sqrt(vx * vx + vy * vy)
-  if (spd > maxSpeed) {
-    vx = (vx / spd) * maxSpeed
-    vy = (vy / spd) * maxSpeed
-  }
-
-  // sub-step movement to prevent tunneling
-  const steps = 4
-  const stepVx = vx / steps
-  const stepVy = vy / steps
-  let hitX = false
-  let hitY = false
-
-  for (let i = 0; i < steps; i++) {
-    x += stepVx
-    y += stepVy
-    const resolved = resolveCollisions(x, y, ball.radius, grid, cellSize)
-    if (resolved.hitX) hitX = true
-    if (resolved.hitY) hitY = true
-    x = resolved.x
-    y = resolved.y
-  }
-
-  const newCellX = Math.floor(x / cellSize)
-  const newCellY = Math.floor(y / cellSize)
-  const newCell = getCell(grid, newCellX, newCellY)
-  const fat = newCell && newCell.modifier === 'fatCursor'
-  const radius = fat ? ball.baseRadius * 1.8 : ball.baseRadius
-
-  return {
-    ...ball,
-    x,
-    y,
-    vx: hitX ? vx * -0.3 : vx,
-    vy: hitY ? vy * -0.3 : vy,
-    radius,
-    fat,
-    onIce,
-    reversed: reversed || ball.reversed,
-    reversedUntil: ball.reversedUntil,
-  }
+function resetBall(ball, grid) {
+  ball.x = grid.start.x + 0.5
+  ball.y = grid.start.y + 0.5
+  ball.vx = 0
+  ball.vy = 0
 }
 
-function resolveCollisions(x, y, radius, grid, cellSize) {
+/**
+ * Push the ball out of any wall it overlaps. Walls are mirrored, so the cell
+ * under the centre carries everything that can stop it; the rim checks catch
+ * the case where the circle reaches into a neighbour the centre is not in.
+ */
+function resolveCollisions(x, y, radius, grid) {
   let hitX = false
   let hitY = false
 
-  // border clamping
-  const totalW = grid.cols * cellSize
-  const totalH = grid.rows * cellSize
   if (x - radius < 0) { x = radius; hitX = true }
-  if (x + radius > totalW) { x = totalW - radius; hitX = true }
+  if (x + radius > grid.cols) { x = grid.cols - radius; hitX = true }
   if (y - radius < 0) { y = radius; hitY = true }
-  if (y + radius > totalH) { y = totalH - radius; hitY = true }
+  if (y + radius > grid.rows) { y = grid.rows - radius; hitY = true }
 
-  // check the cell the ball center is in — its walls constrain the ball
-  // walls are mirrored (toggleWallBetween sets both sides), so checking
-  // the current cell is sufficient
   for (let pass = 0; pass < 2; pass++) {
-    const cx = Math.floor(x / cellSize)
-    const cy = Math.floor(y / cellSize)
-    const cell = getCell(grid, cx, cy)
-    if (!cell) break
+    const cx = Math.floor(x)
+    const cy = Math.floor(y)
+    if (!inBounds(grid, cx, cy)) break
+    const walls = wallsAt(grid, cx, cy)
 
-    const left = cx * cellSize
-    const top = cy * cellSize
-    const right = left + cellSize
-    const bottom = top + cellSize
+    if ((walls & RIGHT) && x + radius > cx + 1) { x = cx + 1 - radius; hitX = true }
+    if ((walls & LEFT) && x - radius < cx) { x = cx + radius; hitX = true }
+    if ((walls & BOTTOM) && y + radius > cy + 1) { y = cy + 1 - radius; hitY = true }
+    if ((walls & TOP) && y - radius < cy) { y = cy + radius; hitY = true }
 
-    if (cell.walls.right && x + radius > right) {
-      x = right - radius
+    const rightCell = Math.floor(x + radius)
+    if (inBounds(grid, rightCell, cy) && (wallsAt(grid, rightCell, cy) & LEFT) && x < rightCell) {
+      x = rightCell - radius
       hitX = true
     }
-    if (cell.walls.left && x - radius < left) {
-      x = left + radius
+    const leftCell = Math.floor(x - radius)
+    if (inBounds(grid, leftCell, cy) && (wallsAt(grid, leftCell, cy) & RIGHT) && x > leftCell + 1) {
+      x = leftCell + 1 + radius
       hitX = true
     }
-    if (cell.walls.bottom && y + radius > bottom) {
-      y = bottom - radius
+    const belowCell = Math.floor(y + radius)
+    if (inBounds(grid, cx, belowCell) && (wallsAt(grid, cx, belowCell) & TOP) && y < belowCell) {
+      y = belowCell - radius
       hitY = true
     }
-    if (cell.walls.top && y - radius < top) {
-      y = top + radius
+    const aboveCell = Math.floor(y - radius)
+    if (inBounds(grid, cx, aboveCell) && (wallsAt(grid, cx, aboveCell) & BOTTOM) && y > aboveCell + 1) {
+      y = aboveCell + 1 + radius
       hitY = true
-    }
-
-    // closed gate acts as wall in blocked direction
-    if (cell.gate && !cell.gate.open) {
-      const gd = cell.gate.direction
-      if (gd === 'right' && x - radius < left) { x = left + radius; hitX = true }
-      if (gd === 'left' && x + radius > right) { x = right - radius; hitX = true }
-      if (gd === 'down' && y - radius < top) { y = top + radius; hitY = true }
-      if (gd === 'up' && y + radius > bottom) { y = bottom - radius; hitY = true }
-    }
-
-    // also check the cell the ball edge is reaching into
-    // (handles case where ball center is near a cell boundary)
-    const edgeRightCell = getCell(grid, Math.floor((x + radius) / cellSize), cy)
-    if (edgeRightCell && edgeRightCell.walls.left) {
-      const wallX = Math.floor((x + radius) / cellSize) * cellSize
-      if (x + radius > wallX && x < wallX) {
-        x = wallX - radius
-        hitX = true
-      }
-    }
-
-    const edgeLeftCell = getCell(grid, Math.floor((x - radius) / cellSize), cy)
-    if (edgeLeftCell && edgeLeftCell.walls.right) {
-      const wallX = (Math.floor((x - radius) / cellSize) + 1) * cellSize
-      if (x - radius < wallX && x > wallX) {
-        x = wallX + radius
-        hitX = true
-      }
-    }
-
-    const edgeBottomCell = getCell(grid, cx, Math.floor((y + radius) / cellSize))
-    if (edgeBottomCell && edgeBottomCell.walls.top) {
-      const wallY = Math.floor((y + radius) / cellSize) * cellSize
-      if (y + radius > wallY && y < wallY) {
-        y = wallY - radius
-        hitY = true
-      }
-    }
-
-    const edgeTopCell = getCell(grid, cx, Math.floor((y - radius) / cellSize))
-    if (edgeTopCell && edgeTopCell.walls.bottom) {
-      const wallY = (Math.floor((y - radius) / cellSize) + 1) * cellSize
-      if (y - radius < wallY && y > wallY) {
-        y = wallY + radius
-        hitY = true
-      }
     }
   }
 
   return { x, y, hitX, hitY }
 }
 
-function checkModifierTrigger(ball, grid, cellSize) {
-  const cellX = Math.floor(ball.x / cellSize)
-  const cellY = Math.floor(ball.y / cellSize)
-  const cell = getCell(grid, cellX, cellY)
-  if (!cell || !cell.modifier) return null
-  return { type: cell.modifier, cellX, cellY }
-}
+/** Advance the ball by exactly one fixed step. Mutates `ball`. */
+function stepBall(ball, input, grid) {
+  let dx = 0
+  let dy = 0
+  if (input.up) dy -= 1
+  if (input.down) dy += 1
+  if (input.left) dx -= 1
+  if (input.right) dx += 1
 
-function checkTrap(ball, grid, cellSize) {
-  const cellX = Math.floor(ball.x / cellSize)
-  const cellY = Math.floor(ball.y / cellSize)
-  const cell = getCell(grid, cellX, cellY)
-  if (!cell) return null
-  if (cell.trap) return { cellX, cellY, type: 'trap' }
-  if (cell.mimic) return { cellX, cellY, type: 'mimic' }
-  return null
-}
-
-function checkMemoryWipe(ball, grid, cellSize) {
-  const cellX = Math.floor(ball.x / cellSize)
-  const cellY = Math.floor(ball.y / cellSize)
-  const cell = getCell(grid, cellX, cellY)
-  if (!cell || !cell.memoryWipe) return false
-  return true
-}
-
-function checkWin(ball, grid, cellSize) {
-  const cellX = Math.floor(ball.x / cellSize)
-  const cellY = Math.floor(ball.y / cellSize)
-  return cellX === grid.end.x && cellY === grid.end.y
-}
-
-function resetBall(ball, grid, cellSize) {
-  return {
-    ...createBallState(grid, cellSize),
-    deaths: ball.deaths + 1,
+  if (dx !== 0 && dy !== 0) {
+    dx *= Math.SQRT1_2
+    dy *= Math.SQRT1_2
   }
+
+  ball.vx = (ball.vx + dx * ACCEL) * FRICTION
+  ball.vy = (ball.vy + dy * ACCEL) * FRICTION
+
+  const speed = Math.hypot(ball.vx, ball.vy)
+  if (speed > MAX_SPEED) {
+    ball.vx = (ball.vx / speed) * MAX_SPEED
+    ball.vy = (ball.vy / speed) * MAX_SPEED
+  }
+
+  const stepVx = ball.vx / SUBSTEPS
+  const stepVy = ball.vy / SUBSTEPS
+  let hitX = false
+  let hitY = false
+
+  for (let i = 0; i < SUBSTEPS; i++) {
+    // one axis at a time — see the note at the top about corner cutting
+    let resolved = resolveCollisions(ball.x + stepVx, ball.y, ball.radius, grid)
+    ball.x = resolved.x
+    ball.y = resolved.y
+    if (resolved.hitX) hitX = true
+    if (resolved.hitY) hitY = true
+
+    resolved = resolveCollisions(ball.x, ball.y + stepVy, ball.radius, grid)
+    ball.x = resolved.x
+    ball.y = resolved.y
+    if (resolved.hitX) hitX = true
+    if (resolved.hitY) hitY = true
+  }
+
+  if (hitX) ball.vx *= BOUNCE
+  if (hitY) ball.vy *= BOUNCE
 }
 
-function getAnimatedGrid(grid, now) {
-  const newCells = grid.cells.map((cell) => {
-    if (cell.modifier === 'slideWall') {
-      const phase = Math.sin(now / 830) > 0
-      return {
-        ...cell,
-        walls: {
-          ...cell.walls,
-          right: phase,
-          left: !phase,
-        },
-      }
-    }
-    if (cell.modifier === 'spinner') {
-      const tick = Math.floor(now / 2500) % 4
-      const rotations = [
-        { top: cell.walls.top, right: cell.walls.right, bottom: cell.walls.bottom, left: cell.walls.left },
-        { top: cell.walls.left, right: cell.walls.top, bottom: cell.walls.right, left: cell.walls.bottom },
-        { top: cell.walls.bottom, right: cell.walls.left, bottom: cell.walls.top, left: cell.walls.right },
-        { top: cell.walls.right, right: cell.walls.bottom, bottom: cell.walls.left, left: cell.walls.top },
-      ]
-      return { ...cell, walls: rotations[tick] }
-    }
-    return cell
-  })
-  return { ...grid, cells: newCells }
+function ballCell(ball) {
+  return { x: Math.floor(ball.x), y: Math.floor(ball.y) }
 }
 
-export { createBallState, updateBall, checkModifierTrigger, checkWin, resetBall, getAnimatedGrid, checkTrap, checkMemoryWipe }
+export {
+  BALL_RADIUS,
+  ACCEL,
+  FRICTION,
+  MAX_SPEED,
+  SUBSTEPS,
+  DIRECTIONS,
+  createBall,
+  resetBall,
+  stepBall,
+  resolveCollisions,
+  ballCell,
+}

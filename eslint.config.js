@@ -8,22 +8,17 @@ export default defineConfig([
   globalIgnores(['dist']),
   {
     files: ['**/*.{js,jsx}'],
-    extends: [
-      js.configs.recommended,
-      reactHooks.configs.flat.recommended,
-      reactRefresh.configs.vite,
-    ],
+    extends: [js.configs.recommended, reactHooks.configs.flat.recommended, reactRefresh.configs.vite],
     languageOptions: {
-      ecmaVersion: 2020,
+      ecmaVersion: 'latest',
       globals: globals.browser,
-      parserOptions: {
-        ecmaVersion: 'latest',
-        ecmaFeatures: { jsx: true },
-        sourceType: 'module',
-      },
+      parserOptions: { ecmaFeatures: { jsx: true }, sourceType: 'module' },
     },
-    rules: {
-      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
-    },
+    rules: { 'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }] },
+  },
+  {
+    // tests and build scripts run in Node
+    files: ['**/*.test.{js,jsx}', 'src/scripts/**/*.js'],
+    languageOptions: { globals: { ...globals.browser, ...globals.node } },
   },
 ])

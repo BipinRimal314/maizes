@@ -1,87 +1,53 @@
-import { useState, useEffect } from 'react'
-import LevelSelect from './components/LevelSelect'
-import MazeBuilder from './components/MazeBuilder'
-import MazeSolver from './components/MazeSolver'
-import { loadAllLevels } from './engine/levelLoader'
+import { useState, useEffect, useCallback } from 'react'
+import { fromJSON } from './generate/generate.js'
+import Levels from './ui/Levels.jsx'
+import Play from './ui/Play.jsx'
+
+const BASE = import.meta.env?.BASE_URL || '/'
 
 function App() {
-  const [mode, setMode] = useState('levels')
-  const [currentLevel, setCurrentLevel] = useState(null)
-  const [allLevels, setAllLevels] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [levels, setLevels] = useState(null)
+  const [current, setCurrent] = useState(null)
+  const [error, setError] = useState(null)
 
   useEffect(() => {
-    const hash = window.location.hash.slice(1)
-    if (hash) {
-      setMode('shared')
-      setLoading(false)
-      return
-    }
-
-    loadAllLevels().then((levels) => {
-      setAllLevels(levels)
-      setLoading(false)
-    })
+    let cancelled = false
+    fetch(`${BASE}levels.json`)
+      .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json() })
+      .then((data) => {
+        if (cancelled) return
+        setLevels(data.map((d) => ({ ...d, grid: fromJSON(d) })))
+      })
+      .catch((e) => { if (!cancelled) setError(e.message) })
+    return () => { cancelled = true }
   }, [])
 
   useEffect(() => {
-    if (mode === 'playing' || mode === 'shared') {
-      document.body.classList.add('playing')
-    } else {
-      document.body.classList.remove('playing')
-    }
-  }, [mode])
+    document.body.classList.toggle('is-playing', current !== null)
+    return () => document.body.classList.remove('is-playing')
+  }, [current])
 
-  const handleSelectLevel = (index) => {
-    setCurrentLevel(index)
-    setMode('playing')
+  const next = useCallback(() => {
+    setCurrent((i) => (i !== null && i < levels.length - 1 ? i + 1 : null))
+  }, [levels])
+
+  if (error) return <div className="loading"><p>could not load levels: {error}</p></div>
+  if (!levels) return <div className="loading"><h1 className="levels__title">mazochist</h1><p>loading…</p></div>
+
+  if (current !== null) {
+    return (
+      <Play
+        key={current}
+        level={levels[current]}
+        index={current}
+        total={levels.length}
+        onBack={() => setCurrent(null)}
+        onNext={current < levels.length - 1 ? next : null}
+      />
+    )
   }
 
-  const handleNextLevel = () => {
-    if (currentLevel != null && currentLevel < allLevels.length - 1) {
-      const next = currentLevel + 1
-      setCurrentLevel(next)
-      setMode('levels')
-      setTimeout(() => setMode('playing'), 0)
-    } else {
-      setMode('levels')
-    }
-  }
-
-  const handleBack = () => {
-    setCurrentLevel(null)
-    setMode('levels')
-  }
-
-  const level = currentLevel != null ? allLevels[currentLevel] : null
-
-  return (
-    <div style={{ width: '100vw', minHeight: '100vh' }}>
-      {mode === 'levels' && (
-        <LevelSelect
-          onSelectLevel={handleSelectLevel}
-          onBuild={() => setMode('build')}
-          allLevels={allLevels}
-          loading={loading}
-        />
-      )}
-      {mode === 'build' && <MazeBuilder />}
-      {mode === 'shared' && <MazeSolver />}
-      {mode === 'playing' && level && (
-        <MazeSolver
-          key={currentLevel}
-          levelGrid={level.grid}
-          levelNumber={currentLevel}
-          levelName={level.name}
-          levelEra={level.era}
-          levelFogRadius={level.fogRadius}
-          levelDeathMode={level.deathMode}
-          onBack={handleBack}
-          onNextLevel={currentLevel < allLevels.length - 1 ? handleNextLevel : null}
-        />
-      )}
-    </div>
-  )
+  return <Levels levels={levels} onPick={setCurrent} />
 }
 
 export default App
