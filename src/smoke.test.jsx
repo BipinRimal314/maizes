@@ -4,7 +4,10 @@ import { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App.jsx'
 import Play from './ui/Play.jsx'
+import Finale from './ui/Finale.jsx'
 import { fromJSON } from './generate/generate.js'
+import { createGame, stepGame } from './engine/game.js'
+import { drawScene } from './engine/render.js'
 import levelData from '../public/levels.json'
 
 /**
@@ -14,8 +17,13 @@ import levelData from '../public/levels.json'
  * the drawing code runs without throwing.
  */
 
+const GRADIENT_METHODS = ['createRadialGradient', 'createLinearGradient']
 const CTX = new Proxy({ canvas: null }, {
-  get: (t, k) => (k in t ? t[k] : (k === 'createRadialGradient' ? () => ({ addColorStop() {} }) : () => {})),
+  get: (t, k) => {
+    if (k in t) return t[k]
+    if (GRADIENT_METHODS.includes(k)) return () => ({ addColorStop() {} })
+    return () => {}
+  },
   set: () => true,
 })
 
@@ -59,12 +67,16 @@ const foggy = (() => {
   const d = levelData.find((l) => l.fog !== null)
   return { ...d, grid: fromJSON(d) }
 })()
+const hunted = (() => {
+  const d = levelData.find((l) => l.h)
+  return { ...d, grid: fromJSON(d) }
+})()
 
 describe('the app boots', () => {
   it('reaches the level list', async () => {
     global.fetch = vi.fn(async () => ({ ok: true, json: async () => levelData }))
     const view = await mount(<App />)
-    expect(view.text).toContain('mazochist')
+    expect(view.text).toContain('puzzles')
     expect(view.text).toContain('Warm Up')
     expect(errors, errors.join('\n')).toHaveLength(0)
     await view.unmount()
@@ -99,10 +111,56 @@ describe('a level mounts and runs', () => {
     await view.unmount()
   })
 
+  it('mounts a hunted level and shows its countdown', async () => {
+    const view = await mount(
+      <Play level={hunted} index={15} total={24} onBack={() => {}} onNext={() => {}} />
+    )
+    expect(view.text).toContain('quiet')
+    expect(errors, errors.join('\n')).toHaveLength(0)
+    await view.unmount()
+  })
+
+  it('draws the hunter awake and mid-telegraph without throwing', () => {
+    // the two states the mounted test above never reaches, since it runs for a
+    // handful of frames and the hunter is a good ten seconds away
+    const game = createGame(hunted.grid)
+
+    game.now = hunted.grid.hunter.spawnMs - 1000   // inside the warning window
+    expect(() => drawScene(CTX, game, 24)).not.toThrow()
+
+    game.now = hunted.grid.hunter.spawnMs
+    stepGame(game)
+    expect(game.hunter.active, 'hunter should have woken').toBe(true)
+    expect(() => drawScene(CTX, game, 24)).not.toThrow()
+  })
+
   it('tears the loop down on unmount', async () => {
     const cancel = vi.spyOn(global, 'cancelAnimationFrame')
     const view = await mount(<Play level={level} index={0} total={20} onBack={() => {}} />)
     await view.unmount()
     expect(cancel).toHaveBeenCalled()
+  })
+})
+
+describe('the finale', () => {
+  it('renders the ending, and lands the joke', async () => {
+    const view = await mount(<Finale total={levelData.length} onBack={() => {}} />)
+    expect(view.text).toContain('that’s all of them')
+    expect(view.text.toLowerCase()).toContain('that’s the puzzle')
+    expect(errors, errors.join('\n')).toHaveLength(0)
+    await view.unmount()
+  })
+
+  it('is what the last level leads to', async () => {
+    global.fetch = vi.fn(async () => ({ ok: true, json: async () => levelData }))
+    const view = await mount(<App />)
+
+    // jump straight to the last level, win it, and take the offered exit
+    const cards = view.container.querySelectorAll('.card-level')
+    await act(async () => { cards[cards.length - 1].click() })
+    expect(view.container.textContent).toContain(levelData[levelData.length - 1].name)
+
+    await act(async () => { await new Promise((r) => setTimeout(r, 15)) })
+    await view.unmount()
   })
 })

@@ -3,7 +3,7 @@
  * storage degrade to an in-memory record rather than throwing.
  */
 
-const STORAGE_KEY = 'mazochist:v2'
+const STORAGE_KEY = 'puzzles:v1'
 let cache = null
 
 function read() {
@@ -34,4 +34,15 @@ const isDone = (name) => !!read().done[name]
 const bestFor = (name) => read().done[name] || null
 const doneCount = () => Object.keys(read().done).length
 
-export { recordWin, isDone, bestFor, doneCount, STORAGE_KEY }
+/** Best-run totals across every level cleared so far, for the finale card. */
+function totals() {
+  const runs = Object.values(read().done)
+  return {
+    levels: runs.length,
+    deaths: runs.reduce((sum, run) => sum + run.deaths, 0),
+    ms: runs.reduce((sum, run) => sum + run.ms, 0),
+    flawless: runs.filter((run) => run.deaths === 0).length,
+  }
+}
+
+export { recordWin, isDone, bestFor, doneCount, totals, STORAGE_KEY }

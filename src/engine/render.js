@@ -14,6 +14,7 @@
  */
 
 import { TOP, RIGHT, BOTTOM, LEFT, wallsAt, key } from './grid.js'
+import { wakeProgress } from './hunter.js'
 
 const COLORS = {
   bg: '#fdf6e6',
@@ -30,6 +31,9 @@ const COLORS = {
   trapFlash: '#e53935',
   captureFlash: '#c2185b',
   fog: '48, 45, 38',
+  hunter: '#5b2333',
+  hunterEye: '#fdf6e6',
+  hunterAura: '229, 57, 53',
 }
 
 const WALL_WIDTH = 0.07
@@ -189,6 +193,99 @@ function drawBall(ctx, ball, cellSize) {
   ctx.fill()
 }
 
+/**
+ * The hunter, drawn as a ghost with eyes that track the ball.
+ *
+ * The eyes are not decoration. The hunter always walks the shortest path to
+ * you, so where it is looking is exactly where it is about to go, and a player
+ * who reads that can get around it. Making the pursuit legible is what keeps
+ * this from being the mechanic that just kills you from off screen.
+ */
+function drawHunter(ctx, game, cellSize) {
+  const hunter = game.hunter
+  if (!hunter || !hunter.active) return
+
+  const x = hunter.x * cellSize
+  const y = hunter.y * cellSize
+  const r = hunter.radius * cellSize
+
+  // a soft aura, so it reads through fog at the edge of the lit circle
+  const aura = ctx.createRadialGradient(x, y, r * 0.5, x, y, r * 2.4)
+  aura.addColorStop(0, `rgba(${COLORS.hunterAura}, 0.34)`)
+  aura.addColorStop(1, `rgba(${COLORS.hunterAura}, 0)`)
+  ctx.fillStyle = aura
+  ctx.beginPath()
+  ctx.arc(x, y, r * 2.4, 0, Math.PI * 2)
+  ctx.fill()
+
+  // body: domed head, four-lobed skirt
+  const skirt = 4
+  ctx.fillStyle = COLORS.hunter
+  ctx.beginPath()
+  ctx.arc(x, y - r * 0.1, r, Math.PI, 0)
+  ctx.lineTo(x + r, y + r * 0.62)
+  for (let i = 0; i < skirt; i++) {
+    const from = x + r - (i * 2 * r) / skirt
+    const to = x + r - ((i + 1) * 2 * r) / skirt
+    ctx.quadraticCurveTo((from + to) / 2, y + r * (i % 2 === 0 ? 1.05 : 0.2), to, y + r * 0.62)
+  }
+  ctx.closePath()
+  ctx.fill()
+
+  // eyes, aimed at the ball
+  const dx = game.ball.x - hunter.x
+  const dy = game.ball.y - hunter.y
+  const distance = Math.max(Math.hypot(dx, dy), 1e-6)
+  const gaze = Math.min(distance, 1) / 1
+  const px = (dx / distance) * r * 0.22 * gaze
+  const py = (dy / distance) * r * 0.22 * gaze
+
+  for (const side of [-1, 1]) {
+    const ex = x + side * r * 0.36
+    const ey = y - r * 0.18
+    ctx.fillStyle = COLORS.hunterEye
+    ctx.beginPath()
+    ctx.ellipse(ex, ey, r * 0.3, r * 0.36, 0, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.fillStyle = COLORS.hunter
+    ctx.beginPath()
+    ctx.arc(ex + px, ey + py, r * 0.16, 0, Math.PI * 2)
+    ctx.fill()
+  }
+}
+
+/**
+ * The tell before the hunter wakes: the board's edge reddens over the last few
+ * seconds. A chaser that simply appears is a gotcha; one that announces itself
+ * is a deadline, which is the mechanic we actually wanted.
+ */
+function drawWakeWarning(ctx, game, cellSize) {
+  const hunter = game.hunter
+  if (!hunter || hunter.active) return
+
+  const progress = wakeProgress(hunter, game.now)
+  if (progress <= 0) return
+
+  const width = game.grid.cols * cellSize
+  const height = game.grid.rows * cellSize
+  const pulse = 0.55 + 0.45 * Math.sin((game.now / 1000) * Math.PI * 4)
+  const depth = Math.min(width, height) * 0.22
+
+  ctx.save()
+  ctx.globalAlpha = progress * pulse * 0.7
+  for (const [x0, y0, x1, y1] of [
+    [0, 0, depth, 0], [width, 0, width - depth, 0],
+    [0, 0, 0, depth], [0, height, 0, height - depth],
+  ]) {
+    const gradient = ctx.createLinearGradient(x0, y0, x1, y1)
+    gradient.addColorStop(0, `rgba(${COLORS.hunterAura}, 0.85)`)
+    gradient.addColorStop(1, `rgba(${COLORS.hunterAura}, 0)`)
+    ctx.fillStyle = gradient
+    ctx.fillRect(0, 0, width, height)
+  }
+  ctx.restore()
+}
+
 let fogCanvas = null
 
 function getFogCanvas(width, height) {
@@ -265,12 +362,21 @@ function drawFlash(ctx, game, cellSize) {
   ctx.restore()
 }
 
-/** One frame. Order matters: fog goes over the maze, flashes over the fog. */
+/**
+ * One frame. Order matters: fog goes over the maze, and the hunter goes over
+ * the fog — it is never hidden by it. Being unable to see the maze is the game;
+ * being unable to see the thing chasing you is just noise.
+ */
 function drawScene(ctx, game, cellSize) {
   drawMaze(ctx, game, cellSize)
   drawBall(ctx, game.ball, cellSize)
   drawFog(ctx, game, cellSize)
+  drawHunter(ctx, game, cellSize)
+  drawWakeWarning(ctx, game, cellSize)
   drawFlash(ctx, game, cellSize)
 }
 
-export { COLORS, WALL_WIDTH, setupCanvas, ballDrawMetrics, drawScene, drawMaze, drawBall, drawFog }
+export {
+  COLORS, WALL_WIDTH, setupCanvas, ballDrawMetrics,
+  drawScene, drawMaze, drawBall, drawFog, drawHunter, drawWakeWarning,
+}

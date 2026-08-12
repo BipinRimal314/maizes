@@ -14,8 +14,16 @@ import { branchDepth, distancesFrom, safeReachable } from './analysis.js'
 import { judge } from './oracle.js'
 
 /**
- * Difficulty tiers. Only four numbers vary, which is the point: there is no
- * combination of mechanics to get wrong because there are only three mechanics.
+ * Difficulty tiers. Only a handful of numbers vary, which is the point: there
+ * is no combination of mechanics to get wrong because there are only four
+ * mechanics, and each tier turns on at most one of them that the tier before
+ * did not have.
+ *
+ * `hunter` is `{ speed, margin }` or absent. `speed` is cells per simulation
+ * step, clamped by `HUNTER_SPEED_CAP` so it can never out-run the ball.
+ * `margin` is how much slack a perfect player gets: the hunter's timer is set
+ * to the longest trip perfect play actually takes, times this. 1.7 means you
+ * can be seventy percent slower than optimal before anything comes looking.
  */
 const TIERS = {
   gentle: { cols: 10, rows: 10, loops: 0.06, flags: 1, traps: 0, fog: null },
@@ -28,7 +36,21 @@ const TIERS = {
   misty: { cols: 12, rows: 12, loops: 0.08, flags: 2, traps: 2, fog: 4.5 },
 
   blind: { cols: 12, rows: 12, loops: 0.08, flags: 2, traps: 3, fog: 3.5 },
-  cruel: { cols: 14, rows: 14, loops: 0.10, flags: 3, traps: 5, fog: 3.0 },
+
+  // `hunted` is `blind` with a hunter and nothing else changed — the same trick
+  // that introduced fog, for the same reason. Generous timer, slow hunter.
+  hunted: {
+    cols: 12, rows: 12, loops: 0.08, flags: 2, traps: 3, fog: 3.5,
+    hunter: { speed: 0.075, margin: 1.9 },
+  },
+
+  // Faster than the hunter in `hunted`, but not on a tighter leash. The last
+  // chapter is meant to be the hard one, not the unfun one, and being caught
+  // already costs a respawn on the biggest, foggiest boards in the game.
+  cruel: {
+    cols: 14, rows: 14, loops: 0.10, flags: 3, traps: 5, fog: 3.0,
+    hunter: { speed: 0.095, margin: 1.8 },
+  },
 }
 
 /**
@@ -133,6 +155,32 @@ function buildCandidate(seed, tier) {
 }
 
 /**
+ * Fit a hunter to a level that has already been judged without one.
+ *
+ * The timer is derived, never guessed. `perfectLegMs` is the longest single
+ * trip out from the start that optimal play actually takes, measured on this
+ * exact maze by the same engine the player will drive; the hunter wakes at that
+ * times the tier's margin. So the hunter is, by construction, something only a
+ * slow player meets.
+ *
+ * Construction is not proof, though, which is why the caller re-judges the
+ * level afterwards with the hunter installed and still demands zero deaths from
+ * perfect play. If the derivation is ever wrong the level is discarded rather
+ * than shipped, the same as every other failure here.
+ */
+function fitHunter(grid, tier, difficulty) {
+  if (!tier.hunter) return null
+
+  const leg = difficulty.perfectLegMs
+  if (!Number.isFinite(leg) || leg <= 0) return null
+
+  return {
+    spawnMs: Math.round(leg * tier.hunter.margin),
+    speed: tier.hunter.speed,
+  }
+}
+
+/**
  * Search seeds until one produces a level the oracle accepts.
  *
  * Returns the level plus the verdict that admitted it, so the shipped set
@@ -152,7 +200,20 @@ function generateLevel(tierName, seed, { attempts = 400 } = {}) {
       continue
     }
 
-    const verdict = judge(grid)
+    // First pass with no hunter: proves the maze itself, and measures the
+    // perfect run the hunter's timer is derived from.
+    let verdict = judge(grid)
+
+    if (verdict.ok && tier.hunter) {
+      grid.hunter = fitHunter(grid, tier, verdict.difficulty)
+      if (!grid.hunter) {
+        rejected.push({ seed: candidateSeed, problems: ['could not size a hunter'] })
+        continue
+      }
+      // Second pass with the hunter installed. Same rules, no exemptions.
+      verdict = judge(grid)
+    }
+
     if (verdict.ok) {
       return {
         grid,
@@ -184,6 +245,7 @@ function toJSON(level, name) {
     f: grid.flags.map((f) => [f.x, f.y]),
     t: grid.traps.map((t) => [t.x, t.y]),
     fog: grid.fog,
+    h: grid.hunter ? [grid.hunter.spawnMs, grid.hunter.speed] : null,
     difficulty: level.difficulty,
   }
 }
@@ -198,7 +260,8 @@ function fromJSON(data) {
     flags: data.f.map(([x, y]) => ({ x, y })),
     traps: data.t.map(([x, y]) => ({ x, y })),
     fog: data.fog ?? null,
+    hunter: data.h ? { spawnMs: data.h[0], speed: data.h[1] } : null,
   }
 }
 
-export { TIERS, generateLevel, buildCandidate, toJSON, fromJSON, placeFlags, placeTraps }
+export { TIERS, generateLevel, buildCandidate, fitHunter, toJSON, fromJSON, placeFlags, placeTraps }

@@ -6,6 +6,7 @@ import { judge, checkStructure } from './oracle.js'
 import { playPerfectly, playBlind } from './solvers.js'
 import { findPath, safeReachable } from './analysis.js'
 import { key } from '../engine/grid.js'
+import { HUNTER_SPEED_CAP } from '../engine/hunter.js'
 
 /**
  * Every shipped level, re-judged from the file that ships.
@@ -151,6 +152,47 @@ describe('the campaign ramp', () => {
     expect(after.t.length).toBe(before.t.length)
     expect(before.fog).toBeNull()
     expect(after.fog).toBeGreaterThan(0)
+  })
+
+  const FIRST_HUNTED_LEVEL = 16
+
+  it('introduces the hunter at level 16', () => {
+    const first = levels.findIndex((l) => l.h !== null && l.h !== undefined)
+    expect(first + 1, 'first hunted level number').toBe(FIRST_HUNTED_LEVEL)
+  })
+
+  it('never goes back to unhunted once the hunter arrives', () => {
+    for (const level of levels.slice(FIRST_HUNTED_LEVEL - 1)) {
+      expect(level.h, `${level.name}`).toBeTruthy()
+    }
+  })
+
+  it('changes only the hunter on the level that introduces it', () => {
+    // the same one-new-variable rule that governs the level fog arrives on
+    const before = levels[FIRST_HUNTED_LEVEL - 2]
+    const after = levels[FIRST_HUNTED_LEVEL - 1]
+    expect(after.c).toBe(before.c)
+    expect(after.r).toBe(before.r)
+    expect(after.f.length).toBe(before.f.length)
+    expect(after.t.length).toBe(before.t.length)
+    expect(after.fog).toBe(before.fog)
+    expect(before.h ?? null).toBeNull()
+    expect(after.h).toBeTruthy()
+  })
+
+  it('gives every hunted level a timer a perfect player beats comfortably', () => {
+    for (const level of levels.filter((l) => l.h)) {
+      const [spawnMs] = level.h
+      // the timer is derived from the longest trip perfect play takes, so it
+      // must always leave that trip room to finish
+      expect(spawnMs, `${level.name}`).toBeGreaterThan(level.difficulty.perfectLegMs)
+    }
+  })
+
+  it('never ships a hunter that can out-run the ball', () => {
+    for (const level of levels.filter((l) => l.h)) {
+      expect(level.h[1], `${level.name}`).toBeLessThanOrEqual(HUNTER_SPEED_CAP)
+    }
   })
 
   it('never gets easier for a blind player as it goes on', () => {

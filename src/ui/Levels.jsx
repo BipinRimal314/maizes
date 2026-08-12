@@ -17,8 +17,8 @@ function Levels({ levels, onPick }) {
   return (
     <div className="levels">
       <header className="levels__head">
-        <h1 className="levels__title">mazochist</h1>
-        <p className="levels__tag">every maze is solvable. that is the cruel part.</p>
+        <h1 className="levels__title">puzzles</h1>
+        <p className="levels__tag">why is it called puzzles? that&rsquo;s the puzzle.</p>
         {done > 0 && <p className="levels__progress">{done} of {levels.length} escaped</p>}
       </header>
 
@@ -41,6 +41,7 @@ function Levels({ levels, onPick }) {
                       <span className="tag tag--trap">{level.grid.traps.length} traps</span>
                     )}
                     {level.grid.fog !== null && <span className="tag tag--fog">fog</span>}
+                    {level.grid.hunter && <span className="tag tag--hunter">hunted</span>}
                   </span>
                   {best && <span className="card-level__best">best: {best.deaths} deaths</span>}
                 </button>

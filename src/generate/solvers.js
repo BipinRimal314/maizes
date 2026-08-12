@@ -103,6 +103,18 @@ function playPerfectly(grid, { budget = 250000 } = {}) {
   const traps = game.traps
   let steps = 0
   let guard = grid.flags.length + 2
+  let cause = null
+  game.onDeath = (_at, why) => { cause = why }
+
+  // A "leg" is one trip out from the start: to a flag, or finally to the exit.
+  // Capturing teleports you back, so legs are exactly the intervals the hunter's
+  // clock measures — which is why the generator sizes `spawnMs` off the longest.
+  let longestLegMs = 0
+  let legStartedAt = 0
+  const endLeg = () => {
+    longestLegMs = Math.max(longestLegMs, game.now - legStartedAt)
+    legStartedAt = game.now
+  }
 
   while (!game.exitOpen && guard-- > 0) {
     const from = ballCell(game.ball)
@@ -125,8 +137,12 @@ function playPerfectly(grid, { budget = 250000 } = {}) {
       return { solved: false, reason: `flag ${chosen.flag.x},${chosen.flag.y}: ${walked.reason}`, deaths: game.deaths, steps }
     }
     if (walked.died) {
-      return { solved: false, reason: 'died on a route it believed was trap-free', deaths: game.deaths, steps }
+      const reason = cause === 'hunter'
+        ? 'the hunter caught a perfect player'
+        : 'died on a route it believed was trap-free'
+      return { solved: false, reason, deaths: game.deaths, steps }
     }
+    endLeg()
   }
 
   if (!game.exitOpen) {
@@ -143,6 +159,13 @@ function playPerfectly(grid, { budget = 250000 } = {}) {
   if (!walked.ok) {
     return { solved: false, reason: `exit: ${walked.reason}`, deaths: game.deaths, steps }
   }
+  if (walked.died) {
+    const reason = cause === 'hunter'
+      ? 'the hunter caught a perfect player on the way to the exit'
+      : 'died on a route to the exit it believed was trap-free'
+    return { solved: false, reason, deaths: game.deaths, steps }
+  }
+  endLeg()
 
   return {
     solved: game.won,
@@ -150,6 +173,7 @@ function playPerfectly(grid, { budget = 250000 } = {}) {
     deaths: game.deaths,
     steps,
     seconds: game.now / 1000,
+    longestLegMs,
   }
 }
 
@@ -206,8 +230,16 @@ function playBlind(grid, { budget = 150000 } = {}) {
   const known = new Set([key(grid.start.x, grid.start.y)])
   const learned = new Set()
   let steps = 0
+  let caught = 0
 
-  game.onDeath = (at) => { learned.add(key(at.x, at.y)) }
+  game.onDeath = (at, cause) => {
+    // Only a trap teaches you something about the floor. Learning the cell the
+    // hunter happened to catch you in would make the blind player avoid a
+    // perfectly safe corridor forever, and it would do it on the levels that
+    // are already the hardest.
+    if (cause === 'hunter') caught++
+    else learned.add(key(at.x, at.y))
+  }
 
   while (steps < budget && !game.won) {
     const from = ballCell(game.ball)
@@ -236,6 +268,7 @@ function playBlind(grid, { budget = 150000 } = {}) {
   return {
     solved: game.won,
     deaths: game.deaths,
+    caught,
     steps,
     explored: known.size,
     seconds: game.now / 1000,

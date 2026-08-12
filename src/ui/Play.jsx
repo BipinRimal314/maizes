@@ -18,7 +18,7 @@ function clock(ms) {
   return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`
 }
 
-function Play({ level, index, total, onBack, onNext }) {
+function Play({ level, index, total, isLast = false, onBack, onNext }) {
   const canvasRef = useRef(null)
   const boardRef = useRef(null)
   const [result, setResult] = useState(null)
@@ -74,7 +74,11 @@ function Play({ level, index, total, onBack, onNext }) {
             <div className="stat"><span className="stat__label">deaths</span><span className="stat__value">{result.deaths}</span></div>
           </div>
           <div className="card__actions">
-            {onNext && <button className="btn btn--primary" onClick={onNext}>next level</button>}
+            {onNext && (
+              <button className="btn btn--primary" onClick={onNext}>
+                {isLast ? 'finish' : 'next level'}
+              </button>
+            )}
             <button className="btn" onClick={onBack}>levels</button>
           </div>
           <p className="card__meta">{level.name} · {seconds}s</p>
@@ -104,6 +108,12 @@ function Play({ level, index, total, onBack, onNext }) {
           <span className="hud__label">deaths</span>
           <span className="hud__value hud__value--deaths">{hud.deaths}</span>
         </div>
+        {hud.hasHunter && (
+          <div className={`hud__tile hud__tile--hunter${hud.hunterAwake ? ' is-awake' : ''}`}>
+            <span className="hud__label">{hud.hunterAwake ? 'hunter' : 'quiet'}</span>
+            <span className="hud__value">{hud.hunterAwake ? '\u{1F441}' : `${hud.hunterIn}s`}</span>
+          </div>
+        )}
       </div>
 
       <div className="board" ref={boardRef}>

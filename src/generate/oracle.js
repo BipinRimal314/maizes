@@ -123,7 +123,11 @@ function judge(grid, { full = true } = {}) {
     difficulty: {
       perfectSeconds: perfect.seconds,
       perfectSteps: perfect.steps,
+      // the longest single trip out from the start, which is the interval the
+      // hunter's clock actually measures
+      perfectLegMs: perfect.longestLegMs,
       blindDeaths: blind.deaths,
+      blindCaught: blind.caught,
       blindSeconds: blind.seconds,
       blindSolved: blind.solved,
       explored: blind.explored,

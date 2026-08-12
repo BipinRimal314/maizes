@@ -56,9 +56,19 @@ const CHAPTERS = [
     count: 4,
     seed: 3000,
   },
+  // The hunter arrives at level 16 the same way fog arrived at level 8: same
+  // size, same flags, same traps, same fog radius as the chapter before it. One
+  // new variable, so a player who suddenly struggles knows what changed.
+  {
+    name: 'Company',
+    blurb: 'Same maze as before. You are just not alone in it any more.',
+    tier: 'hunted',
+    count: 4,
+    seed: 3500,
+  },
   {
     name: 'No Mercy',
-    blurb: 'Bigger, darker, and hiding more from you.',
+    blurb: 'Bigger, darker, faster, and still looking for you.',
     tier: 'cruel',
     count: 5,
     seed: 4000,
@@ -100,7 +110,9 @@ function build() {
         `${name.padEnd(14)} seed=${String(level.seed).padEnd(7)} tries=${String(level.attempts).padStart(3)} ` +
         `${String(Date.now() - started).padStart(4)}ms  route=${String(d.routeLength).padStart(3)} ` +
         `flags=${json.f.length} traps=${json.t.length} fog=${json.fog ?? '-'} ` +
-        `perfect=${d.perfectSeconds.toFixed(0)}s blindDeaths=${d.blindDeaths}`
+        `hunter=${json.h ? `${(json.h[0] / 1000).toFixed(0)}s` : '-'} ` +
+        `perfect=${d.perfectSeconds.toFixed(0)}s blindDeaths=${d.blindDeaths}` +
+        (d.blindCaught ? ` caught=${d.blindCaught}` : '')
       )
     }
   }

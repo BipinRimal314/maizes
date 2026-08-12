@@ -9,6 +9,9 @@
  *   - Once every flag is captured, reach the exit.
  *   - Fog, where a level has it, shows only what is near you. Cells you have
  *     stood in stay dimly remembered.
+ *   - The hunter, where a level has one, wakes after a while and comes for you.
+ *     It is slower than you. Touching it sends you back to the start. Returning
+ *     to the start puts it back to sleep.
  *
  * There is nothing else. No eras, no death modes, no escalation that changes
  * the rules while you play. Every bug in the last version came from those:
@@ -25,6 +28,7 @@
 
 import { createBall, resetBall, stepBall, ballCell } from './physics.js'
 import { key, trapSet, flagSet } from './grid.js'
+import { createHunter, sleepHunter, stepHunter } from './hunter.js'
 
 const STEP_MS = 1000 / 60
 const RESPAWN_FLASH_MS = 450
@@ -45,6 +49,15 @@ const DEATH_QUIPS = [
   'nobody saw that. (everybody saw that.)',
 ]
 
+const CAUGHT_QUIPS = [
+  'it found you. it was always going to.',
+  'you were warned. gently, but you were warned.',
+  'faster next time. you are literally faster than it.',
+  'caught. embarrassing, given the speed difference.',
+  'it does not get tired. you might.',
+  'tag. you are it. you are always it.',
+]
+
 function createGame(grid) {
   return {
     grid,
@@ -60,6 +73,8 @@ function createGame(grid) {
     flags: flagSet(grid),
     captured: new Set(),
     exitOpen: grid.flags.length === 0,
+
+    hunter: createHunter(grid),
 
     visited: new Set([key(grid.start.x, grid.start.y)]),
 
@@ -78,13 +93,17 @@ function emit(game, sound) {
   if (game.onSound) game.onSound(sound)
 }
 
-function die(game, at) {
+function die(game, at, cause = 'trap') {
   game.deaths += 1
   resetBall(game.ball, game.grid)
+  // back at the start, so the hunter loses interest and its clock restarts
+  sleepHunter(game.hunter, game.now)
   game.flash = { x: at.x, y: at.y, until: game.now + RESPAWN_FLASH_MS, kind: 'trap' }
-  game.quip = DEATH_QUIPS[game.deaths % DEATH_QUIPS.length]
-  emit(game, 'death')
-  if (game.onDeath) game.onDeath(at)
+  game.quip = cause === 'hunter'
+    ? CAUGHT_QUIPS[game.deaths % CAUGHT_QUIPS.length]
+    : DEATH_QUIPS[game.deaths % DEATH_QUIPS.length]
+  emit(game, cause === 'hunter' ? 'caught' : 'death')
+  if (game.onDeath) game.onDeath(at, cause)
 }
 
 /**
@@ -98,6 +117,8 @@ function capture(game, at) {
   game.captured.add(id)
   game.exitOpen = game.captured.size >= game.grid.flags.length
   resetBall(game.ball, game.grid)
+  // a capture is a return to the start too, so the same rule applies
+  sleepHunter(game.hunter, game.now)
   game.flash = { x: at.x, y: at.y, until: game.now + CAPTURE_FLASH_MS, kind: 'flag' }
   game.quip = game.exitOpen
     ? 'every flag taken. the exit is open.'
@@ -132,6 +153,18 @@ function stepGame(game) {
     game.won = true
     emit(game, 'win')
     if (game.onWin) game.onWin()
+    return
+  }
+
+  // Last, so that stepping onto the exit or a flag on the same step as the
+  // hunter arrives resolves in the player's favour. The hunter can stall a run
+  // but it can never take one away.
+  const wasAsleep = game.hunter !== null && !game.hunter.active
+  if (stepHunter(game.hunter, game.grid, game.ball, game.now)) {
+    die(game, cell, 'hunter')
+  } else if (wasAsleep && game.hunter.active) {
+    game.quip = 'something is awake. it knows where you are.'
+    emit(game, 'hunter')
   }
 }
 
@@ -139,6 +172,7 @@ function stepGame(game) {
 function restartGame(game) {
   resetBall(game.ball, game.grid)
   game.now = 0
+  game.hunter = createHunter(game.grid)
   game.won = false
   game.deaths = 0
   game.captured.clear()
@@ -160,6 +194,12 @@ function snapshot(game) {
     flagsTotal: game.grid.flags.length,
     exitOpen: game.exitOpen,
     hasFog: game.grid.fog !== null,
+    hasHunter: game.hunter !== null,
+    hunterAwake: game.hunter !== null && game.hunter.active,
+    // seconds of quiet left, floored at zero; null when the level has no hunter
+    hunterIn: game.hunter === null || game.hunter.active
+      ? null
+      : Math.max(0, Math.ceil((game.hunter.wakesAt - game.now) / 1000)),
     quip: game.quip,
   }
 }
@@ -167,6 +207,7 @@ function snapshot(game) {
 export {
   STEP_MS,
   DEATH_QUIPS,
+  CAUGHT_QUIPS,
   createGame,
   stepGame,
   restartGame,

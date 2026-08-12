@@ -2,12 +2,14 @@ import { useState, useEffect, useCallback } from 'react'
 import { fromJSON } from './generate/generate.js'
 import Levels from './ui/Levels.jsx'
 import Play from './ui/Play.jsx'
+import Finale from './ui/Finale.jsx'
 
 const BASE = import.meta.env?.BASE_URL || '/'
 
 function App() {
   const [levels, setLevels] = useState(null)
   const [current, setCurrent] = useState(null)
+  const [finished, setFinished] = useState(false)
   const [error, setError] = useState(null)
 
   useEffect(() => {
@@ -27,12 +29,24 @@ function App() {
     return () => document.body.classList.remove('is-playing')
   }, [current])
 
+  // The last level leads to the finale rather than silently dumping you back on
+  // the list, which is what a campaign with an ending owes you.
   const next = useCallback(() => {
-    setCurrent((i) => (i !== null && i < levels.length - 1 ? i + 1 : null))
+    setCurrent((i) => {
+      if (i === null) return null
+      if (i < levels.length - 1) return i + 1
+      setFinished(true)
+      return null
+    })
   }, [levels])
 
+  const backToLevels = useCallback(() => {
+    setCurrent(null)
+    setFinished(false)
+  }, [])
+
   if (error) return <div className="loading"><p>could not load levels: {error}</p></div>
-  if (!levels) return <div className="loading"><h1 className="levels__title">mazochist</h1><p>loading…</p></div>
+  if (!levels) return <div className="loading"><h1 className="levels__title">puzzles</h1><p>loading…</p></div>
 
   if (current !== null) {
     return (
@@ -41,11 +55,14 @@ function App() {
         level={levels[current]}
         index={current}
         total={levels.length}
-        onBack={() => setCurrent(null)}
-        onNext={current < levels.length - 1 ? next : null}
+        isLast={current === levels.length - 1}
+        onBack={backToLevels}
+        onNext={next}
       />
     )
   }
+
+  if (finished) return <Finale total={levels.length} onBack={backToLevels} />
 
   return <Levels levels={levels} onPick={setCurrent} />
 }

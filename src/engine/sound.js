@@ -38,6 +38,13 @@ const VOICES = {
     tone(ctx, { from: f, gain: 0.16, duration: 0.24, delay: i * 0.09 })),
   win: (ctx) => [523, 659, 784, 1047].forEach((f, i) =>
     tone(ctx, { from: f, gain: 0.18, duration: 0.3, delay: i * 0.11 })),
+
+  // the hunter waking: two low notes, falling, so it is unmistakably not a
+  // reward sound even with the tab in the background
+  hunter: (ctx) => [[196, 0], [147, 0.14]].forEach(([f, delay]) =>
+    tone(ctx, { type: 'triangle', from: f, to: f * 0.72, gain: 0.15, duration: 0.34, delay })),
+
+  caught: (ctx) => tone(ctx, { type: 'square', from: 220, to: 55, gain: 0.13, duration: 0.42 }),
 }
 
 function playSound(name) {
