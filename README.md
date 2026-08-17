@@ -102,11 +102,20 @@ game spoiled by accident.
 ### Terrain
 
 Each chapter is walked over different ground: field, track, dusk, woods, night,
-ridge, marsh, ember. It repaints the board background, the grid, the walls and
-the fog, and nothing else — the start, the exit, the maize and the ball keep
+ridge, marsh, **enchanted**, ember. It repaints the board background, the grid,
+the walls and the fog, and nothing else — the start, the exit, the maize and the ball keep
 their colours everywhere, because those four are how the player reads a board
 and re-tinting them per chapter would re-teach the vocabulary every time the
 scenery changed. Presentation only; no level's proof depends on it.
+
+`enchanted` — The Lit Wood — is the only dark one. Everywhere else is daylight
+or dusk seen through fog; there the ground itself is black and the walls are the
+only light in it. A terrain may carry a `glow`, which lays a wide coloured bloom
+under the walls before the crisp line goes on top. The bloom is stroked twice,
+because canvas shadows do not accumulate within a single stroke and one blurred
+pass reads as a smudge rather than as light. The sharp wall still goes down last:
+a wall is a collision boundary before it is decoration, and the player has to see
+exactly where it is.
 
 ### The speedrun
 
@@ -118,7 +127,7 @@ beating your own time becomes impossible by construction. `progress.js` snapshot
 
 ## The campaign
 
-Thirty levels in eight chapters. Fog arrives at level 8, the hunter at level 16,
+Thirty-three levels in nine chapters. Fog arrives at level 8, the hunter at level 16,
 fading memory at level 25, and none of them ever leaves:
 
 | levels | chapter | maize | traps | fog | hunter | memory |
@@ -130,7 +139,8 @@ fading memory at level 25, and none of them ever leaves:
 | 16–19 | Company | 2 | 3 | 2.9 | slow | ∞ |
 | 20–24 | No Mercy | 3 | 5 | 2.4 | faster | ∞ |
 | 25–27 | Forgetting | 3 | 5 | 2.4 | faster | 7.0s |
-| 28–30 | Nothing Stays | 3 | 5 | 2.4 | faster | 2.5s |
+| 28–30 | The Lit Wood | 3 | 5 | 2.4 | faster | 4.0s |
+| 31–33 | Nothing Stays | 3 | 5 | 2.4 | faster | 2.5s |
 
 The fog only ever tightens, and only on a chapter that is not introducing
 something else. The chapters that bring the hunter and fading memory inherit the

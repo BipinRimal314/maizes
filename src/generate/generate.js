@@ -73,6 +73,15 @@ const TIERS = {
     hunter: { speed: 0.095, margin: 1.8 },
   },
 
+  // The enchanted forest. Mechanically this is `fading` with a shorter memory
+  // and nothing else changed; everything that makes it feel different is the
+  // terrain, which is presentation and touches no proof.
+  enchanted: {
+    cols: 18, rows: 11, loops: 0.10, flags: 3, traps: 5, fog: 2.4,
+    memory: 4000,
+    hunter: { speed: 0.095, margin: 1.8 },
+  },
+
   // Same again, only the memory is shorter — the one variable tightening, the
   // way the fog radius tightens from chapter to chapter.
   vanishing: {

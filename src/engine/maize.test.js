@@ -2,7 +2,7 @@ import { describe, it, expect, afterEach } from 'vitest'
 import { createGrid, setWall, DIRECTIONS } from './grid.js'
 import { createGame } from './game.js'
 import {
-  MAIZE_SCALE, drawMaizeIcon, drawMaze, maizeReady, setMaizeImage,
+  MAIZE_SCALE, TERRAINS, drawMaizeIcon, drawMaze, maizeReady, setMaizeImage,
 } from './render.js'
 
 /**
@@ -138,5 +138,85 @@ describe('on the board', () => {
 
     expect(calls.drawImage).toHaveLength(1)
     expect(calls.fillText.some(([text]) => text === '\u{2713}')).toBe(true)
+  })
+})
+
+describe('terrain', () => {
+  function board(terrain) {
+    const grid = createGrid(6, 6)
+    for (let y = 0; y < 6; y++) {
+      for (let x = 0; x < 6; x++) {
+        if (x + 1 < 6) setWall(grid, x, y, DIRECTIONS[1], false)
+        if (y + 1 < 6) setWall(grid, x, y, DIRECTIONS[2], false)
+      }
+    }
+    grid.terrain = terrain
+    return grid
+  }
+
+  function tracingContext() {
+    const calls = { stroke: [], fillRect: [] }
+    const state = { strokeStyle: null, fillStyle: null, shadowColor: null, shadowBlur: 0 }
+    const stack = []
+    const ctx = {
+      canvas: null,
+      get strokeStyle() { return state.strokeStyle },
+      set strokeStyle(v) { state.strokeStyle = v },
+      get fillStyle() { return state.fillStyle },
+      set fillStyle(v) { state.fillStyle = v },
+      get shadowColor() { return state.shadowColor },
+      set shadowColor(v) { state.shadowColor = v },
+      get shadowBlur() { return state.shadowBlur },
+      set shadowBlur(v) { state.shadowBlur = v },
+      lineWidth: 0, lineCap: '', lineJoin: '', font: '', textAlign: '', textBaseline: '',
+      stroke: () => calls.stroke.push({ ...state }),
+      fillRect: (...a) => calls.fillRect.push({ args: a, fill: state.fillStyle }),
+      save: () => stack.push({ ...state }),
+      restore: () => Object.assign(state, stack.pop()),
+      beginPath() {}, closePath() {}, moveTo() {}, lineTo() {}, arc() {}, arcTo() {},
+      quadraticCurveTo() {}, ellipse() {}, fill() {}, fillText() {}, drawImage() {},
+      clip() {}, translate() {}, rotate() {}, clearRect() {},
+      createRadialGradient: () => ({ addColorStop() {} }),
+      createLinearGradient: () => ({ addColorStop() {} }),
+    }
+    return { ctx, calls }
+  }
+
+  it('paints the ground from the terrain, not a fixed colour', () => {
+    const { ctx, calls } = tracingContext()
+    drawMaze(ctx, createGame(board('enchanted')), 30)
+    expect(calls.fillRect[0].fill).toBe(TERRAINS.enchanted.bg)
+  })
+
+  it('strokes the walls once on a terrain with no glow', () => {
+    const { ctx, calls } = tracingContext()
+    drawMaze(ctx, createGame(board('field')), 30)
+    expect(calls.stroke.filter((s) => s.strokeStyle === TERRAINS.field.wall)).toHaveLength(1)
+    expect(calls.stroke.every((s) => !s.shadowBlur)).toBe(true)
+  })
+
+  it('lays a bloom under the walls on the lit wood, then the crisp line on top', () => {
+    const { ctx, calls } = tracingContext()
+    drawMaze(ctx, createGame(board('enchanted')), 30)
+
+    const glow = calls.stroke.filter((s) => s.strokeStyle === TERRAINS.enchanted.glow)
+    const crisp = calls.stroke.filter((s) => s.strokeStyle === TERRAINS.enchanted.wall)
+
+    // twice, because canvas shadows do not accumulate within one stroke and a
+    // single blurred pass reads as a smudge rather than as light
+    expect(glow).toHaveLength(2)
+    expect(glow.every((s) => s.shadowBlur > 0)).toBe(true)
+
+    // and the sharp wall goes down last: it is a collision boundary before it
+    // is decoration, so the player has to see exactly where it is
+    expect(crisp).toHaveLength(1)
+    expect(crisp[0].shadowBlur).toBeFalsy()
+    expect(calls.stroke.indexOf(crisp[0])).toBeGreaterThan(calls.stroke.indexOf(glow[1]))
+  })
+
+  it('leaves no shadow set behind for whatever draws next', () => {
+    const { ctx, calls } = tracingContext()
+    drawMaze(ctx, createGame(board('enchanted')), 30)
+    expect(calls.stroke[calls.stroke.length - 1].shadowBlur).toBeFalsy()
   })
 })

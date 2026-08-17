@@ -92,6 +92,16 @@ const CHAPTERS = [
     count: 3,
     seed: 4500,
   },
+  // Memory keeps tightening: 7.0s -> 4.0s -> 2.5s. The forest is the last
+  // strange place before the fires, and the only one lit from the walls in.
+  {
+    name: 'The Lit Wood',
+    terrain: 'enchanted',
+    blurb: 'The trees here give off their own light. I do not care for it.',
+    tier: 'enchanted',
+    count: 3,
+    seed: 5500,
+  },
   {
     name: 'Nothing Stays',
     terrain: 'ember',

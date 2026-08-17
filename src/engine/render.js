@@ -58,6 +58,17 @@ const TERRAINS = {
   ridge: { bg: '#e9e7e2', grid: '#d8d5cd', wall: '#3a3833', fog: '38, 37, 34' },
   marsh: { bg: '#e2e6dc', grid: '#cfd6c6', wall: '#33382f', fog: '28, 34, 28' },
   ember: { bg: '#f2e4dc', grid: '#e2cfc4', wall: '#43302a', fog: '48, 28, 22' },
+
+  // The one dark terrain. Everywhere else is daylight or dusk seen through
+  // fog; here the ground itself is black and the walls are the only light in
+  // it. `glow` turns the walls into neon — see the bloom pass in `drawMaze`.
+  enchanted: {
+    bg: '#0d0b1a',
+    grid: '#1b1733',
+    wall: '#7df9e2',
+    glow: 'rgba(80, 240, 205, 0.85)',
+    fog: '6, 5, 14',
+  },
 }
 
 const terrainOf = (grid) => TERRAINS[grid?.terrain] ?? TERRAINS.field
@@ -242,22 +253,48 @@ function drawMaze(ctx, game, cellSize) {
   }
 
   // walls
-  ctx.strokeStyle = ground.wall
+  const traceWalls = () => {
+    ctx.beginPath()
+    for (let y = 0; y < grid.rows; y++) {
+      for (let x = 0; x < grid.cols; x++) {
+        const w = wallsAt(grid, x, y)
+        const px = x * cellSize
+        const py = y * cellSize
+        if (w & TOP) { ctx.moveTo(px, py); ctx.lineTo(px + cellSize, py) }
+        if (w & LEFT) { ctx.moveTo(px, py); ctx.lineTo(px, py + cellSize) }
+        if (w & RIGHT) { ctx.moveTo(px + cellSize, py); ctx.lineTo(px + cellSize, py + cellSize) }
+        if (w & BOTTOM) { ctx.moveTo(px, py + cellSize); ctx.lineTo(px + cellSize, py + cellSize) }
+      }
+    }
+    ctx.stroke()
+  }
+
   ctx.lineWidth = Math.max(2, cellSize * WALL_WIDTH)
   ctx.lineCap = 'round'
-  ctx.beginPath()
-  for (let y = 0; y < grid.rows; y++) {
-    for (let x = 0; x < grid.cols; x++) {
-      const w = wallsAt(grid, x, y)
-      const px = x * cellSize
-      const py = y * cellSize
-      if (w & TOP) { ctx.moveTo(px, py); ctx.lineTo(px + cellSize, py) }
-      if (w & LEFT) { ctx.moveTo(px, py); ctx.lineTo(px, py + cellSize) }
-      if (w & RIGHT) { ctx.moveTo(px + cellSize, py); ctx.lineTo(px + cellSize, py + cellSize) }
-      if (w & BOTTOM) { ctx.moveTo(px, py + cellSize); ctx.lineTo(px + cellSize, py + cellSize) }
-    }
+
+  /*
+   * Neon, on the terrains that ask for it: a wide coloured bloom laid down
+   * first, then the crisp line on top of it. Stroked twice under the shadow
+   * because one pass of a blurred stroke is too faint to read as light —
+   * canvas shadows do not accumulate within a single stroke, so the second
+   * pass is what makes it glow rather than smudge.
+   *
+   * The crisp line still goes down last. Glow alone is a blurry maze, and the
+   * wall is a collision boundary before it is decoration — the player has to
+   * be able to see exactly where it is.
+   */
+  if (ground.glow) {
+    ctx.save()
+    ctx.shadowColor = ground.glow
+    ctx.shadowBlur = cellSize * 0.55
+    ctx.strokeStyle = ground.glow
+    traceWalls()
+    traceWalls()
+    ctx.restore()
   }
-  ctx.stroke()
+
+  ctx.strokeStyle = ground.wall
+  traceWalls()
 }
 
 function drawBall(ctx, ball, cellSize) {

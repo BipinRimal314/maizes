@@ -36,6 +36,7 @@
  *   Company       the hat, and the yellow shape you have been steering.
  *   No Mercy      the camp, the cart, and she has stopped dropping them.
  *   Forgetting    how long he has been out here.
+ *   The Lit Wood  the one place he would never have gone. her trail goes in.
  *   -> the bargain
  */
 
@@ -136,6 +137,18 @@ const CHAPTER_BEATS = {
       n('I am not going home.'),
     ],
   },
+
+  'The Lit Wood': {
+    id: 'ch-lit-wood',
+    lines: [
+      n('There is no moon under those trees and I could still see my hands.'),
+      n('The wood gives off its own light. Green, and cold, and coming from the trunks rather than falling on them.'),
+      v('…don’t eat anything in there…'),
+      v('…he won’t. he’s not hungry, he’s a father.'),
+      n('I have farmed beside this wood my whole life and never once walked into it.'),
+      n('Her trail goes in.'),
+    ],
+  },
 }
 
 /** After the last chapter: the bargain. `maize` is the tally shown alongside. */
@@ -208,6 +221,7 @@ const WHISPERS = {
   'Company 2': '…don’t look back…',
   'No Mercy 2': '…first light. the cart at first light…',
   'Forgetting 2': '…he’s still out there?…',
+  'The Lit Wood 2': '…the lights aren’t trees…',
   'Nothing Stays 2': '…almost, papa…',
 }
 
