@@ -7,22 +7,51 @@
  * repo rests on levels being provably beatable, and a story that could reach
  * into the rules would be a story that could break the proof.
  *
- * Beats are keyed by the chapter they follow, so they fire when a player
- * finishes the last level of that chapter, and each is marked seen so a replay
- * does not show it twice.
+ * ## Two voices
+ *
+ * Every beat is a conversation between someone who will not say what happened
+ * and someone who keeps saying it anyway.
+ *
+ *   `n()` the farmer, telling you what he is doing. Present tense, flat,
+ *         and consistently not mentioning the thing that matters. He is not
+ *         lying to you; he is not letting himself finish the sentence.
+ *
+ *   `v()` the voices — overheard, remembered, or not really there. They come
+ *         in fragments and they say the part he skips.
+ *
+ * The reveal is what happens in the gap between them. The player is told
+ * almost nothing directly: the first card is a man picking up corn and a child
+ * saying one word, and everything after it is earned a chapter at a time. Front
+ * loading this was the original mistake — a prologue that explains the bandits,
+ * the daughter and the trail leaves the next twenty-nine levels with nothing to
+ * find out.
+ *
+ * The ladder, deliberately slow:
+ *
+ *   prologue      something is wrong with the ground. a voice.
+ *   Warm Up       corn does not walk. someone said "she".
+ *   Two Trips     a girl was taken. the trail is on purpose.
+ *   First Light   someone is counting it. it will run out.
+ *   The Fog       her name.
+ *   Company       the hat, and the yellow shape you have been steering.
+ *   No Mercy      the camp, the cart, and she has stopped dropping them.
+ *   Forgetting    how long he has been out here.
+ *   -> the bargain
  */
+
+const n = (text) => ({ v: 'n', text })
+const v = (text) => ({ v: 'v', text })
 
 const PROLOGUE = {
   id: 'prologue',
-  title: 'Journey to Maizy',
+  title: 'Dusk',
   lines: [
-    'They came at dusk, for the corn.',
-    'They took the corn. They took my daughter too.',
-    'By the time I reached the field there was nothing left of either — only a trail of ears dropped into the dark, one at a time, further than any of them fell by accident.',
-    'Maizy is leaving me a trail.',
-    'I have been following it since.',
+    n('There is corn on the ground that should be on the stalk.'),
+    n('I am picking it up.'),
+    v('papa'),
+    n('That is all I am doing.'),
   ],
-  action: 'follow the trail',
+  action: 'pick it up',
 }
 
 /**
@@ -34,67 +63,92 @@ const CHAPTER_BEATS = {
   'Warm Up': {
     id: 'ch-warm-up',
     lines: [
-      'Four fields behind me. The trail keeps going.',
-      'So do I.',
+      n('Four rows cleared, and the ground keeps dropping them ahead of me.'),
+      n('Corn does not walk. I know that much.'),
+      v('…she’s still got a whole armful…'),
+      n('I did not hear that.'),
     ],
   },
+
   'Two Trips': {
     id: 'ch-two-trips',
     lines: [
-      'More of it now, and further apart. She is spending what she has to keep the line unbroken.',
-      'Clever girl. Her mother was clever too.',
+      n('Further out than my land goes, now. I have not stopped to think about that.'),
+      v('…leave the sacks. take the girl.'),
+      n('I am gathering what fell. That is all this is.'),
+      v('…i’m dropping them where you’ll look, papa…'),
     ],
   },
+
   'First Light': {
     id: 'ch-first-light',
     lines: [
-      'The light went out of the sky an hour ago.',
-      'I know this ground. I do not know it in the dark.',
+      n('The light went. I have walked this ground my whole life and I cannot find it in the dark.'),
+      n('The corn is easier to find than the path.'),
+      v('…one every twenty steps. she’ll run out before the ridge…'),
+      n('Someone has thought about this more carefully than I have.'),
     ],
   },
+
   'The Fog': {
     id: 'ch-the-fog',
     lines: [
-      'I can see about as far as my own arm.',
-      'The trail is still there every time I reach the place it should be. That is the only thing keeping me walking.',
+      n('I can see about as far as my own arm.'),
+      n('Every time I reach the place the next one should be, it is there.'),
+      v('maizy. sit down.'),
+      v('…papa i’m here i’m here i’m—'),
+      n('Maizy.'),
+      n('I have not said her name out loud since the field.'),
     ],
   },
-  // The hat. The player has been moving a small yellow shape around for
-  // twenty levels by now without being told what it is.
+
+  // The hat. Twenty levels of steering a small yellow shape without being told
+  // what it is; this is the only place that debt gets paid.
   'Company': {
     id: 'ch-company',
     lines: [
-      'Something walked behind me for the best part of an hour. It never closed. It never had to hurry.',
-      'I did not look back. I kept my eyes on the little yellow shape going on ahead of me in the dark — the one you have been steering this whole time.',
-      'It is my hat. I have not taken it off since the field.',
-      'It is the only part of me that has kept going in a straight line.',
+      n('Something has walked behind me for an hour. It never closes. It never needs to.'),
+      v('…there’s nothing behind you, papa…'),
+      v('…there’s nothing behind him.'),
+      n('I did not look back. I kept my eyes on the small yellow thing going on ahead of me in the dark — the one you have been steering this whole time.'),
+      n('It is my hat. I have not taken it off since the field.'),
+      n('It is the only part of me that has kept going in a straight line.'),
     ],
   },
+
   'No Mercy': {
     id: 'ch-no-mercy',
     lines: [
-      'Fires. Smoke on the wind, and voices in it.',
-      'They are close enough now that I have started walking quietly.',
+      n('Fires. Smoke, and voices in it, and this time they are outside my head.'),
+      v('the cart goes at first light.'),
+      v('…she’s stopped dropping them.'),
+      n('I have started walking quietly.'),
     ],
   },
+
   'Forgetting': {
     id: 'ch-forgetting',
     lines: [
-      'Two days awake.',
-      'The ground closes up behind me as fast as I open it. I could not find my own way home now if I turned around.',
-      'I am not turning around.',
+      n('Two days awake. The ground closes behind me as fast as I open it.'),
+      n('I could not find my way home now if I turned around.'),
+      v('…how long has he been out there?'),
+      v('…papa, you’re going the wrong—'),
+      n('I am not going home.'),
     ],
   },
 }
 
-/** After the last chapter: the bargain. `maize` is the tally to show. */
+/** After the last chapter: the bargain. `maize` is the tally shown alongside. */
 const BARGAIN = {
   id: 'bargain',
-  title: 'The bargain',
+  title: 'The camp',
   lines: [
-    'Their camp, at the end of the trail. Every ear she dropped, gathered up and carried the whole way.',
-    'The big one comes out to meet me. He does not reach for anything, which frightens me more than if he had.',
-    '"All of it," I tell him. "Every last one. For my daughter."',
+    n('The end of the trail, and their fires at the end of it.'),
+    n('Every ear she dropped, gathered up and carried the whole way.'),
+    n('The big one comes out to meet me. He does not reach for anything, which frightens me more than if he had.'),
+    n('"All of it," I tell him. "Every last one. For my daughter."'),
+    v('—'),
+    n('Nothing. For the first time in three days, nothing at all.'),
   ],
   action: 'hand it over',
 }
@@ -103,10 +157,10 @@ const TOO_LATE = {
   id: 'too-late',
   title: 'Too late',
   lines: [
-    'He counts it. Then he counts it again, slower, watching me the whole time.',
-    'Then he smiles.',
-    '"Too late, farmer. She went out with the first cart, hours back."',
-    '"If only you were faster. You could have saved her."',
+    n('He counts it. Then he counts it again, slower, watching me the whole time.'),
+    n('Then he smiles.'),
+    v('"Too late, farmer. She went out with the first cart, hours back."'),
+    v('"If only you were faster. You could have saved her."'),
   ],
   action: 'go back. be faster.',
 }
@@ -115,9 +169,10 @@ const SPEEDRUN_BRIEF = {
   id: 'speedrun-brief',
   title: 'Faster, then',
   lines: [
-    'Every field again. All of it again, in the dark, with the thing that follows and the ground that closes.',
-    'And quicker than I walked it the first time. Every single one.',
-    'She left me the trail. The least I can do is run it.',
+    n('Every field again. All of it again, in the dark, with the thing that follows and the ground that closes.'),
+    n('And quicker than I walked it the first time. Every single one.'),
+    v('papa'),
+    n('Ahead of me, this time.'),
   ],
   action: 'run',
 }
@@ -126,12 +181,37 @@ const ENDING = {
   id: 'ending',
   title: 'Maizy',
   lines: [
-    'The cart was slower than the man said. They always are.',
-    'She hears me before she sees me — she says it was the hat.',
-    '"Thank you for helping me reach my daughter."',
+    n('The cart was slower than he said. They always are.'),
+    n('She hears me before she sees me. She says it was the hat — that she would know it anywhere, going on ahead in the dark.'),
+    v('papa.'),
+    n('Thank you for helping me reach my daughter.'),
   ],
   action: 'levels',
 }
+
+/**
+ * Fragments heard *during* a level, a few seconds in.
+ *
+ * The chapter cards are where the story moves; these are where it leaks. They
+ * arrive while the player is busy and cannot stop to study them, which is the
+ * right way to deliver a thing that is supposed to feel half-heard — and it
+ * puts a hint inside the game rather than only between the levels of it.
+ *
+ * Keyed by level name, at most one per level, and deliberately sparse: eight
+ * across thirty levels, so hearing one stays an event.
+ */
+const WHISPERS = {
+  'Warm Up 2': '…where did she go…',
+  'Two Trips 1': '…they came up the west track…',
+  'First Light 2': '…count them. count them, papa…',
+  'The Fog 1': '…she’s still dropping them…',
+  'Company 2': '…don’t look back…',
+  'No Mercy 2': '…first light. the cart at first light…',
+  'Forgetting 2': '…he’s still out there?…',
+  'Nothing Stays 2': '…almost, papa…',
+}
+
+const whisperFor = (levelName) => WHISPERS[levelName] ?? null
 
 /** The beat owed after finishing `chapter`, or null. */
 const beatAfterChapter = (chapter) => CHAPTER_BEATS[chapter] ?? null
@@ -178,6 +258,8 @@ export {
   TOO_LATE,
   SPEEDRUN_BRIEF,
   ENDING,
+  WHISPERS,
+  whisperFor,
   beatAfterChapter,
   beatsAfterLevel,
 }

@@ -6,6 +6,7 @@ import Story from './ui/Story.jsx'
 import Finale from './ui/Finale.jsx'
 import { record, flush } from './ui/telemetry.js'
 import { loadMaize } from './engine/render.js'
+import { initDevMode } from './ui/devmode.js'
 import {
   PROLOGUE, BARGAIN, SPEEDRUN_BRIEF, ENDING, beatsAfterLevel,
 } from './ui/story.js'
@@ -53,6 +54,9 @@ function App() {
 
   // send anything a previous session could not deliver
   useEffect(() => { flush() }, [])
+
+  // ?dev in the url flips developer mode before anything renders
+  useEffect(() => { initDevMode() }, [])
 
   // start decoding the maize sprite while the player is still reading the level
   // list, so the first board it appears on is not the one that waits for it

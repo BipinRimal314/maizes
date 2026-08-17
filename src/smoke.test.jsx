@@ -10,6 +10,7 @@ import { createGame, stepGame } from './engine/game.js'
 import { drawScene } from './engine/render.js'
 import { isMuted, setMuted } from './engine/sound.js'
 import { resetCache } from './ui/progress.js'
+import { setDevMode } from './ui/devmode.js'
 import levelData from '../public/levels.json'
 
 /**
@@ -29,9 +30,28 @@ const CTX = new Proxy({ canvas: null }, {
   set: () => true,
 })
 
+/**
+ * jsdom declares `window.localStorage` but leaves it undefined here, and Node's
+ * own global throws without --localstorage-file. Progress, dev mode and the
+ * story beats all persist through it, so without a real one the level list
+ * cannot be driven past level 1.
+ */
+function fakeStorage() {
+  const map = new Map()
+  return {
+    getItem: (k) => (map.has(k) ? map.get(k) : null),
+    setItem: (k, v) => { map.set(k, String(v)) },
+    removeItem: (k) => { map.delete(k) },
+    clear: () => { map.clear() },
+  }
+}
+
 let errors
 
 beforeEach(() => {
+  Object.defineProperty(window, 'localStorage', {
+    value: fakeStorage(), configurable: true, writable: true,
+  })
   global.IS_REACT_ACT_ENVIRONMENT = true
   HTMLCanvasElement.prototype.getContext = () => CTX
   global.OffscreenCanvas = class {
@@ -89,8 +109,8 @@ describe('the app boots', () => {
   it('reaches the level list', async () => {
     global.fetch = vi.fn(async () => ({ ok: true, json: async () => levelData }))
     const view = await mount(<App />)
-    // the prologue comes first on a fresh save
-    expect(view.text).toContain('Journey to Maizy')
+    // the prologue comes first on a fresh save, and gives almost nothing away
+    expect(view.text).toContain('corn on the ground')
     await skipStory(view)
     expect(view.text).toContain('maizes')
     expect(view.text).toContain('Warm Up')
@@ -261,17 +281,19 @@ describe('the finale', () => {
     await view.unmount()
   })
 
-  it('is what the last level leads to', async () => {
+  it('is reachable from the last level once every level is unlocked', async () => {
+    setDevMode(true)
     global.fetch = vi.fn(async () => ({ ok: true, json: async () => levelData }))
     const view = await mount(<App />)
     await skipStory(view)
 
-    // jump straight to the last level, win it, and take the offered exit
-    const cards = view.container.querySelectorAll('.card-level')
+    const cards = view.container.querySelectorAll('.card-level:not(.card-level--locked)')
+    expect(cards).toHaveLength(levelData.length)
     await act(async () => { cards[cards.length - 1].click() })
     expect(view.container.textContent).toContain(levelData[levelData.length - 1].name)
 
     await act(async () => { await new Promise((r) => setTimeout(r, 15)) })
+    setDevMode(false)
     await view.unmount()
   })
 })

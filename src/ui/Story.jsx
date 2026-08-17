@@ -6,6 +6,12 @@ import maizeUrl from '../assets/maize.png'
  * Deliberately dumb: it renders a beat and calls back when the player is done
  * reading. All of the sequencing lives in App, so a beat cannot accidentally
  * decide what happens next.
+ *
+ * The two voices are set differently on purpose. The farmer is body text; the
+ * voices are indented, lighter and italic, as though heard past him rather than
+ * from him. The whole story is carried by the gap between what he says and what
+ * they say, so if the reader cannot tell them apart at a glance there is no
+ * gap — just a paragraph.
  */
 function Story({ beat, maize = null, onDone, actionLabel }) {
   return (
@@ -14,8 +20,13 @@ function Story({ beat, maize = null, onDone, actionLabel }) {
         {beat.title && <h2 className="story__title">{beat.title}</h2>}
 
         <div className="story__lines">
-          {beat.lines.map((line) => (
-            <p key={line}>{line}</p>
+          {beat.lines.map((line, i) => (
+            <p
+              key={`${line.v}-${i}-${line.text.slice(0, 12)}`}
+              className={line.v === 'v' ? 'story__voice' : 'story__narrator'}
+            >
+              {line.text}
+            </p>
           ))}
         </div>
 

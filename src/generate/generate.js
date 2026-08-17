@@ -285,6 +285,7 @@ function fromJSON(data) {
     traps: data.t.map(([x, y]) => ({ x, y })),
     fog: data.fog ?? null,
     memory: data.m ?? null,
+    terrain: data.terrain ?? null,
     hunter: data.h ? { spawnMs: data.h[0], speed: data.h[1] } : null,
   }
 }

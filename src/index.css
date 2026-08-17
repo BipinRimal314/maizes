@@ -335,6 +335,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 }
 .menu .btn { width: 100%; justify-content: center; }
 
+.play__quip--whisper { color: var(--fading); letter-spacing: 0.02em; opacity: 0.85; }
 .play__quip {
   font-size: 0.8rem;
   font-style: italic;
@@ -414,9 +415,11 @@ button { font: inherit; color: inherit; cursor: pointer; }
   text-align: center;
   margin-bottom: 1.4rem;
 }
-.story__lines { display: flex; flex-direction: column; gap: 0.9rem; }
-.story__lines p { font-size: 0.92rem; line-height: 1.75; color: var(--ink); }
-.story__lines p:first-child::first-letter {
+.story__lines { display: flex; flex-direction: column; gap: 0.85rem; }
+
+/* the farmer: plain body text, saying what he is doing and not much else */
+.story__narrator { font-size: 0.95rem; line-height: 1.75; color: var(--ink); }
+.story__narrator:first-child::first-letter {
   font-family: var(--display);
   font-weight: 800;
   font-size: 2.1rem;
@@ -424,6 +427,19 @@ button { font: inherit; color: inherit; cursor: pointer; }
   line-height: 1;
   padding: 0.1rem 0.4rem 0 0;
   color: var(--flag);
+}
+
+/* the voices: heard past him rather than from him. The whole story is the gap
+   between the two, so they have to be told apart without being read */
+.story__voice {
+  font-size: 0.88rem;
+  line-height: 1.7;
+  font-style: italic;
+  color: var(--ink-soft);
+  margin-left: 1.6rem;
+  padding-left: 0.9rem;
+  border-left: 2px solid var(--line);
+  opacity: 0.92;
 }
 .card--story .card__actions { margin-top: 1.8rem; }
 
@@ -455,6 +471,23 @@ button { font: inherit; color: inherit; cursor: pointer; }
 
 .levels__progress--racing { color: var(--flag); font-weight: 700; }
 .card-level.is-beaten { border-color: var(--exit); background: var(--exit-soft); }
+
+/* the trail ahead: a number and nothing else. The mechanic tags are the
+   spoiler, so an unreached level shows none of them. */
+.card-level--locked {
+  border-style: dashed;
+  background: transparent;
+  color: var(--ink-soft);
+  opacity: 0.5;
+  cursor: default;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.card-level--locked:hover { transform: none; }
+.card-level__lock { font-size: 1.1rem; align-self: flex-end; filter: grayscale(0.7); }
+.chapter--unknown .chapter__name { color: var(--ink-soft); }
+.levels__dev { margin-top: 0.9rem; color: var(--fading); font-weight: 700; }
 .card__punchline-answer { font-size: 1.15rem; font-weight: 800; }
 
 @media (prefers-reduced-motion: reduce) {

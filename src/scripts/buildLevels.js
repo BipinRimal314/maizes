@@ -20,6 +20,9 @@ const OUTPUT = resolve(HERE, '../../public/levels.json')
 /**
  * The campaign. Each chapter teaches one thing and then stops.
  *
+ * `terrain` is presentation only — it repaints the board so the journey looks
+ * like it is going somewhere, and changes nothing the oracle judges.
+ *
  * The previous version had ten chapters of a hundred levels in its design
  * document and shipped twenty-five that no one had played through. Twenty
  * levels that are all verified beatable is a better game than a hundred that
@@ -28,6 +31,7 @@ const OUTPUT = resolve(HERE, '../../public/levels.json')
 const CHAPTERS = [
   {
     name: 'Warm Up',
+    terrain: 'field',
     blurb: 'A maze, and one flag to fetch. Enjoy it.',
     tier: 'gentle',
     count: 4,
@@ -35,6 +39,7 @@ const CHAPTERS = [
   },
   {
     name: 'Two Trips',
+    terrain: 'track',
     blurb: 'Two flags now, and the floor is not entirely trustworthy.',
     tier: 'brisk',
     count: 3,
@@ -44,6 +49,7 @@ const CHAPTERS = [
   // waiting until level 11 spent half the campaign before getting to it.
   {
     name: 'First Light',
+    terrain: 'dusk',
     blurb: 'Same size, same traps. You just cannot see it any more.',
     tier: 'misty',
     count: 4,
@@ -51,6 +57,7 @@ const CHAPTERS = [
   },
   {
     name: 'The Fog',
+    terrain: 'woods',
     blurb: 'Closer in now. You will have to remember what you walked through.',
     tier: 'blind',
     count: 4,
@@ -61,6 +68,7 @@ const CHAPTERS = [
   // new variable, so a player who suddenly struggles knows what changed.
   {
     name: 'Company',
+    terrain: 'night',
     blurb: 'Same maze as before. You are just not alone in it any more.',
     tier: 'hunted',
     count: 4,
@@ -68,6 +76,7 @@ const CHAPTERS = [
   },
   {
     name: 'No Mercy',
+    terrain: 'ridge',
     blurb: 'Bigger, darker, faster, and still looking for you.',
     tier: 'cruel',
     count: 5,
@@ -77,6 +86,7 @@ const CHAPTERS = [
   // hunter: identical to the chapter before it in every other respect.
   {
     name: 'Forgetting',
+    terrain: 'marsh',
     blurb: 'You will still walk it. You just will not keep it.',
     tier: 'fading',
     count: 3,
@@ -84,6 +94,7 @@ const CHAPTERS = [
   },
   {
     name: 'Nothing Stays',
+    terrain: 'ember',
     blurb: 'It closes up behind you almost as fast as you open it.',
     tier: 'vanishing',
     count: 3,
@@ -119,6 +130,7 @@ function build() {
       const json = toJSON(level, name)
       json.chapter = chapter.name
       json.blurb = chapter.blurb
+      json.terrain = chapter.terrain
       levels.push(json)
 
       const d = level.difficulty

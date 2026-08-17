@@ -39,6 +39,29 @@ const COLORS = {
   hunterAura: '229, 57, 53',
 }
 
+/**
+ * Terrain: the ground a chapter is walked over.
+ *
+ * Presentation only — it repaints the board and nothing else, so no level's
+ * proof depends on it. Only the ground, the grid lines, the walls and the fog
+ * change; the start, the exit, the maize and the ball keep their colours on
+ * every terrain, because those four are how the player reads the board and
+ * re-tinting them per chapter would be re-teaching the vocabulary every time
+ * the scenery changed.
+ */
+const TERRAINS = {
+  field: { bg: '#fdf6e6', grid: '#efe6cf', wall: '#33302a', fog: '48, 45, 38' },
+  track: { bg: '#f6ecd9', grid: '#e6d8bd', wall: '#4a3b2a', fog: '52, 42, 30' },
+  dusk:  { bg: '#eae5e2', grid: '#dbd3d2', wall: '#3b3340', fog: '42, 38, 52' },
+  woods: { bg: '#e6eadf', grid: '#d5dcca', wall: '#2f3a2c', fog: '30, 40, 30' },
+  night: { bg: '#dfe2ea', grid: '#ccd2de', wall: '#2b3040', fog: '22, 26, 40' },
+  ridge: { bg: '#e9e7e2', grid: '#d8d5cd', wall: '#3a3833', fog: '38, 37, 34' },
+  marsh: { bg: '#e2e6dc', grid: '#cfd6c6', wall: '#33382f', fog: '28, 34, 28' },
+  ember: { bg: '#f2e4dc', grid: '#e2cfc4', wall: '#43302a', fog: '48, 28, 22' },
+}
+
+const terrainOf = (grid) => TERRAINS[grid?.terrain] ?? TERRAINS.field
+
 const WALL_WIDTH = 0.07
 const MARKER_INSET = 0.14
 const MEMORY_ALPHA = 0.76
@@ -155,13 +178,14 @@ function drawMaizeIcon(ctx, x, y, cellSize) {
 
 function drawMaze(ctx, game, cellSize) {
   const { grid } = game
+  const ground = terrainOf(grid)
   const width = grid.cols * cellSize
   const height = grid.rows * cellSize
 
-  ctx.fillStyle = COLORS.bg
+  ctx.fillStyle = ground.bg
   ctx.fillRect(0, 0, width, height)
 
-  ctx.strokeStyle = COLORS.grid
+  ctx.strokeStyle = ground.grid
   ctx.lineWidth = 0.5
   ctx.beginPath()
   for (let x = 0; x <= grid.cols; x++) { ctx.moveTo(x * cellSize, 0); ctx.lineTo(x * cellSize, height) }
@@ -207,7 +231,7 @@ function drawMaze(ctx, game, cellSize) {
   }
 
   // walls
-  ctx.strokeStyle = COLORS.wall
+  ctx.strokeStyle = ground.wall
   ctx.lineWidth = Math.max(2, cellSize * WALL_WIDTH)
   ctx.lineCap = 'round'
   ctx.beginPath()
@@ -381,7 +405,7 @@ function drawFog(ctx, game, cellSize) {
   const fctx = canvas.getContext('2d')
 
   fctx.clearRect(0, 0, width, height)
-  fctx.fillStyle = `rgba(${COLORS.fog}, 1)`
+  fctx.fillStyle = `rgba(${terrainOf(grid).fog}, 1)`
   fctx.fillRect(0, 0, width, height)
 
   fctx.globalCompositeOperation = 'destination-out'
@@ -451,7 +475,7 @@ function drawScene(ctx, game, cellSize) {
 }
 
 export {
-  COLORS, WALL_WIDTH, MAIZE_SCALE, setupCanvas, ballDrawMetrics,
+  COLORS, TERRAINS, terrainOf, WALL_WIDTH, MAIZE_SCALE, setupCanvas, ballDrawMetrics,
   loadMaize, maizeReady, setMaizeImage, drawMaizeIcon,
   drawScene, drawMaze, drawBall, drawFog, drawHunter, drawWakeWarning,
 }

@@ -40,10 +40,25 @@ the thing you have to reason about is exactly the thing on screen.
 
 ## The story
 
-*Journey to Maizy.* Bandits took the corn and the farmer's daughter with it. She
-leaves a trail of ears in the dark; he follows it. At the end of it he trades
-every ear he gathered for her, and is told he is too late — **if only you were
-faster** — which is where the second run begins.
+*Journey to Maizy.* You start knowing nothing: a man picking up corn that should
+still be on the stalk, and a child's voice saying one word. Everything after
+that is earned a chapter at a time.
+
+Every beat is a conversation between two voices — the farmer, who tells you what
+he is doing and consistently will not finish the sentence that matters, and the
+voices, overheard or remembered or not really there, who say the part he skips.
+The reveal happens in the gap between them.
+
+The ladder is deliberately slow: corn does not walk → someone said "she" → a
+girl was taken and the trail is on purpose → someone is counting it and it will
+run out → her name → the hat, and the yellow shape you have been steering for
+twenty levels → the camp and the cart → how long he has been out here. Then the
+bargain, the refusal, and **if only you were faster**, which is where the second
+run begins.
+
+Eight fragments also land *during* levels, a few seconds in, in the quip line.
+They arrive while the player is busy and cannot stop to study them, which is the
+right delivery for something meant to feel half-heard.
 
 The whole thing lives in `src/ui/story.js` and `Story.jsx` and touches neither
 the engine nor the generator. A beat is a card between levels; not one line of
@@ -56,6 +71,35 @@ the fiddliest part: it has to tell the last level of a chapter from the last
 level of the game, and the end of the first run from the end of the second.
 Testing that through a mounted component would mean actually winning thirty
 mazes.
+
+### The campaign is a mystery
+
+The level list shows what has been walked and exactly one step past it.
+Everything beyond is a blank marker, and a chapter that has not been reached is
+not drawn at all.
+
+The mechanic tags are the reason. "fog", "hunted" and "fading" name three of the
+revelations the story spends thirty levels earning — a player who reads them off
+a list on day one has been handed the ending, and the chapter names give away
+nearly as much.
+
+Unlocking counts an **unbroken run from the start**, not a total, so finishing
+level 12 in developer mode does not hand a real player levels 2 through 12 they
+never walked.
+
+`?dev` unlocks everything and puts the tags back; `?dev=0` turns it off again,
+and the choice is remembered. It is deliberately not a keyboard easter egg — a
+tester who stumbles onto a secret that reveals the whole campaign has had the
+game spoiled by accident.
+
+### Terrain
+
+Each chapter is walked over different ground: field, track, dusk, woods, night,
+ridge, marsh, ember. It repaints the board background, the grid, the walls and
+the fog, and nothing else — the start, the exit, the maize and the ball keep
+their colours everywhere, because those four are how the player reads a board
+and re-tinting them per chapter would re-teach the vocabulary every time the
+scenery changed. Presentation only; no level's proof depends on it.
 
 ### The speedrun
 

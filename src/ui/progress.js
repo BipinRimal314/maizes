@@ -69,6 +69,23 @@ const isDone = (name) => !!read().done[name]
 const bestFor = (name) => read().done[name] || null
 const doneCount = () => Object.keys(read().done).length
 
+/**
+ * How far along the trail the player has been let.
+ *
+ * The campaign is a mystery, so a level is only offered once the one before it
+ * is finished. Counted as an unbroken run from the start rather than as a total
+ * — finishing level 12 in developer mode must not hand a real player levels
+ * 2 through 12 they never walked.
+ */
+function unlockedCount(levels) {
+  const store = read()
+  let reached = 0
+  while (reached < levels.length && store.done[levels[reached].name]) reached += 1
+  return Math.min(reached + 1, levels.length)
+}
+
+const isUnlocked = (levels, index) => index < unlockedCount(levels)
+
 /** Best-run totals across every level cleared so far, for the finale card. */
 function totals() {
   const runs = Object.values(read().done)
@@ -145,6 +162,7 @@ function resetCache() {
 
 export {
   recordWin, isDone, bestFor, doneCount, totals, maizeCollected,
+  unlockedCount, isUnlocked,
   hasSeen, markSeen,
   startSpeedrun, speedrunActive, speedrunFinished, speedrunComplete,
   speedrunProgress, parFor, beatenTime, isBeaten, finishSpeedrun,

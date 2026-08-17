@@ -3,6 +3,7 @@ import { createGame, restartGame } from '../engine/game.js'
 import { recordWin, parFor, speedrunActive } from './progress.js'
 import { playSound, isMuted, toggleMuted } from '../engine/sound.js'
 import { record } from './telemetry.js'
+import { whisperFor } from './story.js'
 import { useCellSize } from './useCellSize.js'
 import { useGameInput } from './useGameInput.js'
 import { useGameLoop } from './useGameLoop.js'
@@ -59,6 +60,25 @@ function Play({ level, index, total, isLast = false, onBack, onNext }) {
   const hud = useGameLoop(game, canvasRef, cellSize)
 
   const [muted, setMuted] = useState(isMuted)
+
+  /*
+   * A fragment heard a few seconds into some levels.
+   *
+   * It arrives while the player is busy and cannot stop to study it, which is
+   * the right delivery for something meant to feel half-heard — and it puts a
+   * hint inside the game rather than only on the cards between levels. It
+   * borrows the quip line rather than adding furniture, and yields back to the
+   * quips afterwards, because a death has more to say than a ghost does.
+   */
+  const [whisper, setWhisper] = useState(null)
+
+  useEffect(() => {
+    const line = whisperFor(level.name)
+    if (!line) return undefined
+    const show = setTimeout(() => setWhisper(line), 4500)
+    const hide = setTimeout(() => setWhisper(null), 13000)
+    return () => { clearTimeout(show); clearTimeout(hide) }
+  }, [level.name])
 
   /*
    * Pause is React state that writes through to `game.paused`, rather than
@@ -225,7 +245,9 @@ function Play({ level, index, total, isLast = false, onBack, onNext }) {
         )}
       </div>
 
-      <p className="play__quip">{hud.quip}</p>
+      <p className={`play__quip${whisper && !hud.quip ? ' play__quip--whisper' : ''}`}>
+        {hud.quip || whisper || ''}
+      </p>
 
       <div className="play__controls">
         <span className="play__keys">wasd / arrows · R restart · P menu</span>

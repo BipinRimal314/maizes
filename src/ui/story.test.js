@@ -4,7 +4,9 @@ import {
   recordWin, bestFor, hasSeen, markSeen, maizeCollected,
   startSpeedrun, speedrunActive, speedrunComplete, speedrunProgress,
   parFor, isBeaten, finishSpeedrun, speedrunFinished, resetCache,
+  unlockedCount, isUnlocked,
 } from './progress.js'
+import { isDevMode, setDevMode, initDevMode } from './devmode.js'
 import {
   PROLOGUE, BARGAIN, TOO_LATE, SPEEDRUN_BRIEF, ENDING, CHAPTER_BEATS,
   beatAfterChapter, beatsAfterLevel,
@@ -64,7 +66,7 @@ describe('story beats', () => {
   it('reveals the hat only after the player has moved it for a while', () => {
     // the reveal lands as a payoff or not at all; it must not be in chapter one
     const revealChapter = Object.entries(CHAPTER_BEATS)
-      .find(([, beat]) => beat.lines.some((l) => l.includes('my hat')))?.[0]
+      .find(([, beat]) => beat.lines.some((l) => l.text.includes('my hat')))?.[0]
     expect(revealChapter).toBeTruthy()
     const firstLevel = levels.findIndex((l) => l.chapter === revealChapter)
     expect(firstLevel).toBeGreaterThan(10)
@@ -227,5 +229,63 @@ describe('an older save', () => {
     expect(speedrunActive()).toBe(false)
     expect(hasSeen(PROLOGUE.id)).toBe(false)
     expect(() => startSpeedrun(levels)).not.toThrow()
+  })
+})
+
+describe('the trail is walked, not browsed', () => {
+  it('offers only the first level on a fresh save', () => {
+    expect(unlockedCount(levels)).toBe(1)
+    expect(isUnlocked(levels, 0)).toBe(true)
+    expect(isUnlocked(levels, 1)).toBe(false)
+  })
+
+  it('opens exactly one more each time one is finished', () => {
+    recordWin(levels[0].name, { deaths: 0, ms: 9000 })
+    expect(unlockedCount(levels)).toBe(2)
+    recordWin(levels[1].name, { deaths: 0, ms: 9000 })
+    expect(unlockedCount(levels)).toBe(3)
+  })
+
+  it('does not hand over levels that were skipped past', () => {
+    // finishing level 12 in developer mode must not unlock 2 through 12 for a
+    // player who never walked them
+    recordWin(levels[11].name, { deaths: 0, ms: 9000 })
+    expect(unlockedCount(levels)).toBe(1)
+  })
+
+  it('never runs past the end of the campaign', () => {
+    for (const level of levels) recordWin(level.name, { deaths: 0, ms: 9000 })
+    expect(unlockedCount(levels)).toBe(levels.length)
+    expect(isUnlocked(levels, levels.length - 1)).toBe(true)
+    expect(isUnlocked(levels, levels.length)).toBe(false)
+  })
+})
+
+describe('developer mode', () => {
+  beforeEach(() => { setDevMode(false) })
+
+  it('is off unless asked for', () => {
+    expect(isDevMode()).toBe(false)
+  })
+
+  it('turns on and stays on', () => {
+    setDevMode(true)
+    expect(isDevMode()).toBe(true)
+    resetCache()
+    expect(isDevMode(), 'did not survive a reload').toBe(true)
+  })
+
+  it('is switched by ?dev in the url', () => {
+    const url = (search) => {
+      Object.defineProperty(window, 'location', {
+        value: { search }, configurable: true, writable: true,
+      })
+    }
+    url('?dev')
+    expect(initDevMode()).toBe(true)
+    url('?dev=0')
+    expect(initDevMode()).toBe(false)
+    url('')
+    expect(initDevMode(), 'no param should leave it alone').toBe(false)
   })
 })
