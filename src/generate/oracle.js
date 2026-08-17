@@ -23,6 +23,16 @@ const RULES = {
   MAX_BLIND_DEATHS: 25,
   //: being caught costs the whole attempt, so it gets a far smaller allowance
   MAX_BLIND_LOSSES: 6,
+  /*
+   * How long optimal play may take. A cap on patience, not on difficulty.
+   *
+   * The `artery` and `bottleneck` intents produce long committed routes, which
+   * is the point of them — but left unbounded they produced a hundred-cell
+   * corridor taking a minute of perfect play, on boards that also carry a
+   * hunter and a memory that rots. Losing one of those at the fifty-fifth
+   * second is not hard, it is tedious, and the fix is to never ship it.
+   */
+  MAX_PERFECT_SECONDS: 40,
 }
 
 function trapKeys(grid) {
@@ -111,6 +121,13 @@ function judge(grid, { full = true } = {}) {
   }
   if (perfect.deaths > 0) {
     return { ok: false, problems: [`a perfect player still died ${perfect.deaths} times`], difficulty: null }
+  }
+  if (perfect.seconds > RULES.MAX_PERFECT_SECONDS) {
+    return {
+      ok: false,
+      problems: [`even played perfectly this takes ${perfect.seconds.toFixed(0)}s`],
+      difficulty: null,
+    }
   }
 
   // A blind player estimates how hard it actually is.

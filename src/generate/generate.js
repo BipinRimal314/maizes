@@ -13,6 +13,7 @@ import { buildMaze } from './maze.js'
 import { branchDepth, distancesFrom, safeReachable } from './analysis.js'
 import { judge } from './oracle.js'
 import { hunterSpeedCap } from '../engine/hunter.js'
+import { levelMetrics, shapeDistance } from './metrics.js'
 
 /**
  * Difficulty tiers. Only a handful of numbers vary, which is the point: there
@@ -114,10 +115,72 @@ const TIERS = {
 }
 
 /**
+ * What question a level asks.
+ *
+ * The tier says which mechanics are switched on. The intent says what shape of
+ * problem they are arranged into — and two levels in the same chapter now
+ * differ by this rather than only by their random seed, which is the whole
+ * reason twenty-eight of thirty-nine shipped levels felt like re-runs.
+ *
+ * An intent is two things: knobs that change how the maze is built, and a
+ * `want` the finished level has to satisfy. The want is checked *before* the
+ * physics simulation, so a candidate with the wrong shape is thrown away for
+ * almost nothing — only the ones that ask the right question are expensive.
+ *
+ * The thresholds are taken from the measured spread of the thirty-nine levels
+ * that already exist, not invented: `warren` wants a junction rate above the
+ * 75th percentile, `artery` below the 25th, and so on. That way each intent is
+ * demonstrably reachable and demonstrably not the average.
+ */
+const INTENTS = {
+  // one long committed walk. Few forks, so a wrong turn is a long wrong turn.
+  artery: {
+    loops: 0.04,
+    want: (m) => m.routeRatio >= 2.05 && m.junctionRate <= 0.24,
+  },
+
+  // forks under your feet the whole way. The question is whether you can hold
+  // a map in your head, which is the question fog was introduced to ruin.
+  warren: {
+    loops: 0.12,
+    want: (m) => m.junctionRate >= 0.33 && m.routeRatio <= 2.1,
+  },
+
+  // maize scattered around the compass. Each ear is its own round trip, so
+  // spreading them turns one walk done twice into two different walks.
+  detour: {
+    spreadMaize: true,
+    want: (m) => m.maizeSpread >= 100,
+  },
+
+  // traps crowding the only way through. Care, at whatever speed you dare.
+  gauntlet: {
+    crowdTraps: true,
+    want: (m) => m.trapPressure >= 0.8,
+  },
+
+  // places the level funnels through, which are places something can wait.
+  // The upper bound on route length is what keeps this a funnel rather than a
+  // snake: without it the cheapest way to score chokepoints is one long
+  // corridor, which is a different and much duller level.
+  bottleneck: {
+    loops: 0.05,
+    want: (m) => m.chokepoints >= 22 && m.routeRatio <= 2.5,
+  },
+
+  // loops everywhere, so a wrong turn costs almost nothing and the only thing
+  // left to be good at is speed.
+  circuit: {
+    loops: 0.17,
+    want: (m) => m.loopRate >= 0.13 && m.routeRatio <= 1.95,
+  },
+}
+
+/**
  * Flags go where a player would plausibly go looking: deep in a branch off the
  * main route, and a decent distance from the start.
  */
-function placeFlags(grid, route, rng, count) {
+function placeFlags(grid, route, rng, count, intent = {}) {
   if (count === 0) return true
 
   const depth = branchDepth(grid, route)
@@ -141,14 +204,35 @@ function placeFlags(grid, route, rng, count) {
   const chosen = []
   const pool = rng.shuffle(candidates).sort((a, b) => b.score - a.score)
 
+  /*
+   * On a `detour` level, pick for angle rather than for score.
+   *
+   * Rejection sampling cannot find this on its own — the measured median
+   * spread across the shipped set is 23 degrees, so waiting for a seed that
+   * happens to scatter the maize around the compass would burn thousands of
+   * candidates. Choosing greedily for the widest gap gets there directly.
+   */
+  const angleOf = (c) => Math.atan2(c.y - grid.start.y, c.x - grid.start.x)
+  const separation = (a, b) => {
+    const d = Math.abs(angleOf(a) - angleOf(b))
+    return Math.min(d, Math.PI * 2 - d)
+  }
+
   for (const candidate of pool) {
     if (chosen.length >= count) break
     const tooClose = chosen.some(
       (c) => Math.abs(c.x - candidate.x) + Math.abs(c.y - candidate.y) < 3
     )
     if (tooClose) continue
+    if (intent.spreadMaize && chosen.length > 0) {
+      const nearest = Math.min(...chosen.map((c) => separation(c, candidate)))
+      if (nearest < Math.PI / 2.4) continue
+    }
     chosen.push(candidate)
   }
+
+  // a spread that could not be met is a dud seed, not a level to ship anyway
+  if (intent.spreadMaize && chosen.length < count) return false
 
   if (chosen.length < count) return false
   grid.flags = chosen.map((c) => ({ x: c.x, y: c.y }))
@@ -161,7 +245,7 @@ function placeFlags(grid, route, rng, count) {
  * last condition is checked here rather than trusted, because it is the one
  * that made three levels unwinnable last time.
  */
-function placeTraps(grid, route, rng, count) {
+function placeTraps(grid, route, rng, count, intent = {}) {
   if (count === 0) return true
 
   const depth = branchDepth(grid, route)
@@ -171,9 +255,13 @@ function placeTraps(grid, route, rng, count) {
     ...grid.flags.map((f) => key(f.x, f.y)),
   ])
 
+  // ordinarily traps sit one to three steps off the route — the tempting wrong
+  // turn. A `gauntlet` pulls them right up against it, so the danger is on the
+  // way through rather than beside it.
+  const maxDepth = intent.crowdTraps ? 1 : 3
   const candidates = []
   for (const [id, d] of depth) {
-    if (d < 1 || d > 3) continue
+    if (d < 1 || d > maxDepth) continue
     if (reserved.has(id)) continue
     const [x, y] = id.split(',').map(Number)
     candidates.push({ x, y })
@@ -271,17 +359,18 @@ function placeSurfaces(grid, rng, { sand = 0, snow = 0 } = {}) {
 }
 
 /** Build one candidate level from a seed, or null if the seed is a dud. */
-function buildCandidate(seed, tier) {
+function buildCandidate(seed, tier, intent = {}) {
   const rng = createRng(seed)
-  const built = buildMaze(rng, tier)
+  // an intent may reshape the maze itself before anything is placed in it
+  const built = buildMaze(rng, { ...tier, loops: intent.loops ?? tier.loops })
   if (!built) return null
 
   const { grid, route } = built
   grid.fog = tier.fog
   grid.memory = tier.memory ?? null
 
-  if (!placeFlags(grid, route, rng, tier.flags)) return null
-  if (!placeTraps(grid, route, rng, tier.traps)) return null
+  if (!placeFlags(grid, route, rng, tier.flags, intent)) return null
+  if (!placeTraps(grid, route, rng, tier.traps, intent)) return null
   if (!placeSurfaces(grid, rng, tier)) return null
 
   return grid
@@ -328,17 +417,43 @@ function fitHunter(grid, tier, difficulty) {
  * Returns the level plus the verdict that admitted it, so the shipped set
  * carries its own evidence.
  */
-function generateLevel(tierName, seed, { attempts = 400 } = {}) {
+function generateLevel(tierName, seed, { attempts = 2500, intent: intentName = null, unlike = [], apart = 0 } = {}) {
   const tier = TIERS[tierName]
   if (!tier) throw new Error(`unknown tier: ${tierName}`)
+
+  const intent = intentName ? INTENTS[intentName] : null
+  if (intentName && !intent) throw new Error(`unknown intent: ${intentName}`)
 
   const rejected = []
 
   for (let attempt = 0; attempt < attempts; attempt++) {
     const candidateSeed = seed + attempt * 7919
-    const grid = buildCandidate(candidateSeed, tier)
+    const grid = buildCandidate(candidateSeed, tier, intent ?? {})
     if (!grid) {
       rejected.push({ seed: candidateSeed, problems: ['could not be built'] })
+      continue
+    }
+
+    /*
+     * Shape first, physics second.
+     *
+     * Both of these throw candidates away, and one of them costs a hundred
+     * thousand simulation steps while the other costs a breadth-first search.
+     * Asking the cheap question first is the difference between a build that
+     * takes two seconds and one that takes several minutes.
+     */
+    const metrics = levelMetrics(grid)
+    if (!metrics) {
+      rejected.push({ seed: candidateSeed, problems: ['no route to measure'] })
+      continue
+    }
+    if (intent && !intent.want(metrics)) {
+      rejected.push({ seed: candidateSeed, problems: [`not ${intentName} enough`] })
+      continue
+    }
+    const tooSimilar = unlike.find((other) => shapeDistance(metrics, other) < apart)
+    if (tooSimilar) {
+      rejected.push({ seed: candidateSeed, problems: ['too much like a level already accepted'] })
       continue
     }
 
@@ -361,6 +476,8 @@ function generateLevel(tierName, seed, { attempts = 400 } = {}) {
         grid,
         seed: candidateSeed,
         tier: tierName,
+        intent: intentName,
+        metrics,
         difficulty: verdict.difficulty,
         attempts: attempt + 1,
         rejected,
@@ -397,6 +514,7 @@ function toJSON(level, name) {
   return {
     name,
     tier: level.tier,
+    intent: level.intent,
     seed: level.seed,
     c: grid.cols,
     r: grid.rows,
@@ -431,6 +549,6 @@ function fromJSON(data) {
 }
 
 export {
-  TIERS, generateLevel, buildCandidate, fitHunter, toJSON, fromJSON,
+  TIERS, INTENTS, generateLevel, buildCandidate, fitHunter, toJSON, fromJSON,
   placeFlags, placeTraps, placeSurfaces,
 }

@@ -187,6 +187,51 @@ level 24 in every way except that its memory fades. One new variable at a time,
 so a player who suddenly finds it hard knows exactly what changed — and the
 variable only ever tightens after that, the way the fog radius does.
 
+## Every level asks its own question
+
+A level is a **tier** and an **intent**. The tier says which mechanics are
+switched on; the intent says what shape of problem they are arranged into.
+
+That second axis is new, and it exists because of a measurement: the campaign
+before it had thirty-nine levels carrying **eleven** distinct configurations.
+Within a chapter, levels were generated from one tier and different random
+seeds — the walls moved and nothing else did, so twenty-eight of thirty-nine
+re-ran something the player had already been taught.
+
+| intent | the question it asks | how it is measured |
+|---|---|---|
+| `artery` | will you commit to one long route? | route length ÷ board span, few junctions |
+| `warren` | can you hold a map in your head? | junctions per cell of route |
+| `detour` | is that ear worth the trip? | degrees of arc the maize is spread over |
+| `gauntlet` | can you be careful at speed? | share of traps on or beside the route |
+| `bottleneck` | can you time what is waiting? | cells the level cannot be finished without |
+| `circuit` | how fast, given a wrong turn is cheap? | edges beyond a spanning tree |
+
+An intent is knobs plus a `want`. The knobs reshape the maze before anything is
+placed in it — `circuit` injects four times the loops of `artery` — and the
+`want` is a predicate the finished level must satisfy. The thresholds come from
+the measured spread of the levels this replaces, so each intent is demonstrably
+reachable and demonstrably not the average.
+
+**The shape check runs before the physics.** Both throw candidates away, and one
+costs a hundred thousand simulation steps while the other costs a breadth-first
+search. Asking the cheap question first is the difference between a two-second
+build and a several-minute one.
+
+Two rules keep it honest, both checked against the shipped file rather than the
+process that made it:
+
+- **No two levels in a chapter may sit within 0.55 of each other** on the shape
+  vector. Calibrated rather than guessed — generating with intents and no
+  distinctness rule gives a floor of 0.33 and a lower quartile of 0.63. The
+  first attempt used 0.9, which simply failed to build the campaign.
+- **Each chapter opens on the intent the previous one closed with**, so on the
+  level where a mechanic arrives the shape of the problem is the shape just
+  finished. One new variable at a time, extended to level design.
+
+Result: thirty-nine levels, **thirty-nine distinct configurations**, closest
+in-chapter pair 0.56 apart where it used to be 0.17.
+
 ## Levels are proven, not authored
 
 No maze geometry is written by hand. A level is generated from a seed, then
@@ -214,6 +259,11 @@ Every level must satisfy, before it ships:
   neither an ear of maize nor the exit may require dying to reach
 - no cell is walled off entirely
 - a perfect player finishes with **zero** deaths and is **never caught**
+- a perfect player finishes inside 40 seconds — a cap on patience, not on
+  difficulty. `artery` and `bottleneck` produce long committed routes on
+  purpose, but unbounded they produced a hundred-cell corridor taking a minute
+  of optimal play on a board that also carries a hunter and a rotting memory.
+  Losing one of those at the fifty-fifth second is tedious, not hard
 - a blind player finishes at all, dies fewer than 25 times, and is caught fewer
   than 6 times
 
@@ -352,6 +402,7 @@ src/
   generate/
     maze.js        seeded carve + loop injection
     analysis.js    graph facts: routes, safe reachability, branch depth
+    metrics.js     the shape of a level, and how far apart two levels are
     solvers.js     the two simulated players
     oracle.js      every rule a level must satisfy
     generate.js    build, judge, fit a hunter, judge again, keep or discard

@@ -6,6 +6,9 @@ import { judge, checkStructure } from './oracle.js'
 import { playPerfectly, playBlind } from './solvers.js'
 import { findPath, safeReachable } from './analysis.js'
 import { key } from '../engine/grid.js'
+import { levelMetrics, shapeDistance } from './metrics.js'
+import { INTENTS } from './generate.js'
+import { RULES } from './oracle.js'
 import { hunterSpeedCap } from '../engine/hunter.js'
 
 /**
@@ -110,6 +113,96 @@ describe('generation is deterministic', () => {
     expect(Array.from(a.grid.walls)).toEqual(Array.from(b.grid.walls))
     expect(a.grid.flags).toEqual(b.grid.flags)
     expect(a.grid.traps).toEqual(b.grid.traps)
+  })
+})
+
+describe('every level asks its own question', () => {
+  /*
+   * The rule this replaces: levels within a chapter used to be generated from
+   * one tier and different seeds, so thirty-nine levels carried eleven distinct
+   * configurations and twenty-eight of them re-ran something already taught.
+   *
+   * A level now declares an intent — the shape of problem it poses — and has to
+   * satisfy it, and no two levels in a chapter may sit near each other in shape.
+   */
+  const shaped = levels.map((level) => ({ ...level, shape: levelMetrics(level.grid) }))
+
+  it('gives every level an intent that exists', () => {
+    for (const level of shaped) {
+      expect(level.intent, `${level.name} has no intent`).toBeTruthy()
+      expect(INTENTS[level.intent], `${level.name}: unknown intent`).toBeTruthy()
+    }
+  })
+
+  it('actually satisfies the intent it claims', () => {
+    // the level file could be hand-edited or the generator could drift; this
+    // re-measures the shipped artifact rather than trusting the label
+    for (const level of shaped) {
+      const wanted = INTENTS[level.intent].want
+      expect(wanted(level.shape), `${level.name} is not ${level.intent} enough`).toBe(true)
+    }
+  })
+
+  it('uses every intent it defines', () => {
+    // a defined-but-unused intent is a rule nobody checks
+    const used = new Set(shaped.map((l) => l.intent))
+    for (const name of Object.keys(INTENTS)) {
+      expect(used.has(name), `${name} is never used`).toBe(true)
+    }
+  })
+
+  it('never repeats an intent inside a chapter', () => {
+    const byChapter = new Map()
+    for (const level of shaped) {
+      const seen = byChapter.get(level.chapter) ?? new Set()
+      expect(seen.has(level.intent), `${level.chapter} asks ${level.intent} twice`).toBe(false)
+      seen.add(level.intent)
+      byChapter.set(level.chapter, seen)
+    }
+  })
+
+  it('keeps every pair in a chapter apart in shape', () => {
+    const byChapter = new Map()
+    for (const level of shaped) {
+      byChapter.set(level.chapter, [...(byChapter.get(level.chapter) ?? []), level])
+    }
+    for (const [chapter, group] of byChapter) {
+      for (let i = 0; i < group.length; i++) {
+        for (let j = i + 1; j < group.length; j++) {
+          const apart = shapeDistance(group[i].shape, group[j].shape)
+          expect(apart, `${chapter}: ${group[i].name} and ${group[j].name}`)
+            .toBeGreaterThanOrEqual(0.5)
+        }
+      }
+    }
+  })
+
+  it('opens each chapter on the shape the previous one closed with', () => {
+    /*
+     * The one-new-variable rule, extended. On the level where fog or the hunter
+     * or the snow arrives, the shape of the problem is the shape just
+     * finished — so the only thing that changed is the mechanic, and a player
+     * who suddenly struggles knows exactly what to blame.
+     */
+    const chapters = []
+    for (const level of shaped) {
+      if (!chapters.length || chapters.at(-1).name !== level.chapter) {
+        chapters.push({ name: level.chapter, levels: [] })
+      }
+      chapters.at(-1).levels.push(level)
+    }
+    for (let i = 1; i < chapters.length; i++) {
+      const closed = chapters[i - 1].levels.at(-1).intent
+      const opened = chapters[i].levels[0].intent
+      expect(opened, `${chapters[i].name} opens on ${opened} after ${closed}`).toBe(closed)
+    }
+  })
+
+  it('never ships a level that is a slog even played perfectly', () => {
+    for (const level of levels) {
+      expect(level.difficulty.perfectSeconds, level.name)
+        .toBeLessThanOrEqual(RULES.MAX_PERFECT_SECONDS)
+    }
   })
 })
 
