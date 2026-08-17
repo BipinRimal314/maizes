@@ -1,9 +1,10 @@
-# Puzzles
+# Maizes
 
-Twenty-four mazes. You cannot see most of them. Something in the later ones is
-looking for you.
+Thirty mazes. You cannot see most of them. You are in there to collect maize,
+something in the later ones is looking for you, and towards the end you stop
+being able to trust your own map.
 
-Why is it called Puzzles? That's the puzzle.
+Why is it called Maizes? That's the puzzle.
 
 ```bash
 npm install
@@ -15,18 +16,21 @@ npm run build
 
 ## The rules, in full
 
-- Capture every flag. Capturing one sends you back to the start.
+- Pick every ear of maize. Picking one sends you back to the start.
 - Traps are invisible. Stepping on one sends you back to the start.
-- With every flag captured, reach the exit.
+- With every ear picked, reach the exit.
 - Fog, on levels that have it, shows only what is near you. Cells you have stood
-  in stay dimly remembered.
+  in stay dimly remembered — until the chapters where that stops being true.
+- Memory, on levels that have it, is a countdown rather than a promise. A cell
+  you walked through dims as it ages and is gone entirely once the span runs
+  out, so the trail rots at the far end while you are still walking it.
 - The hunter, on levels that have one, wakes after a while and comes for you. It
   always knows where you are, and it is slower than you. Touching it sends you
   back to the start. **Returning to the start puts it back to sleep.**
 
-That is all of them. **Captured flags are never lost**, including on death —
-that one rule removes the whole class of "you must die to make progress, but
-dying undoes your progress".
+That is all of them. **Picked maize is never lost**, including on death — that
+one rule removes the whole class of "you must die to make progress, but dying
+undoes your progress".
 
 The hunter's sleep rule is the same kind of load-bearing clause. A chaser that
 survives your respawn can sit on the start square and kill you the instant you
@@ -36,22 +40,25 @@ the thing you have to reason about is exactly the thing on screen.
 
 ## The campaign
 
-Twenty-four levels in six chapters. Fog arrives at level 8, the hunter at
-level 16, and neither ever leaves:
+Thirty levels in eight chapters. Fog arrives at level 8, the hunter at level 16,
+fading memory at level 25, and none of them ever leaves:
 
-| levels | chapter | flags | traps | fog | hunter |
-|---|---|---|---|---|---|
-| 1–4 | Warm Up | 1 | — | — | — |
-| 5–7 | Two Trips | 2 | 2 | — | — |
-| 8–11 | First Light | 2 | 2 | 4.5 | — |
-| 12–15 | The Fog | 2 | 3 | 3.5 | — |
-| 16–19 | Company | 2 | 3 | 3.5 | slow |
-| 20–24 | No Mercy | 3 | 5 | 3.0 | faster |
+| levels | chapter | maize | traps | fog | hunter | memory |
+|---|---|---|---|---|---|---|
+| 1–4 | Warm Up | 1 | — | — | — | ∞ |
+| 5–7 | Two Trips | 2 | 2 | — | — | ∞ |
+| 8–11 | First Light | 2 | 2 | 4.5 | — | ∞ |
+| 12–15 | The Fog | 2 | 3 | 3.5 | — | ∞ |
+| 16–19 | Company | 2 | 3 | 3.5 | slow | ∞ |
+| 20–24 | No Mercy | 3 | 5 | 3.0 | faster | ∞ |
+| 25–27 | Forgetting | 3 | 5 | 3.0 | faster | 7.0s |
+| 28–30 | Nothing Stays | 3 | 5 | 3.0 | faster | 2.5s |
 
-Level 8 is deliberately identical to level 7 in every way except the fog. Level
-16 is deliberately identical to level 15 in every way except the hunter — same
-board size, same flags, same traps, same fog radius. One new variable at a time,
-so a player who suddenly finds it hard knows exactly what changed.
+Level 8 is identical to level 7 in every way except the fog. Level 16 is
+identical to level 15 in every way except the hunter. Level 25 is identical to
+level 24 in every way except that its memory fades. One new variable at a time,
+so a player who suddenly finds it hard knows exactly what changed — and the
+variable only ever tightens after that, the way the fog radius does.
 
 ## Levels are proven, not authored
 
@@ -77,7 +84,7 @@ Every level must satisfy, before it ships:
 - start and exit are far apart *across the board*, not just through corridors —
   an exit two cells away behind a wall is not a hard level
 - **nothing lethal stands between the player and anything they must touch** —
-  neither a flag nor the exit may require dying to reach
+  neither an ear of maize nor the exit may require dying to reach
 - no cell is walled off entirely
 - a perfect player finishes with **zero** deaths
 - a blind player finishes at all, and dies fewer than 25 times
@@ -126,6 +133,26 @@ being unable to see the thing chasing you is just noise. Its eyes track the
 ball, because it always walks the shortest path to you — so where it is looking
 is where it is about to go, and a player who reads that can get around it.
 
+### Fading memory is the one thing here that is not proven
+
+Every other mechanic on this list is checked by simulation. Fading memory is
+deliberately not, and it is worth being plain about why rather than letting the
+"every level is proven" claim quietly cover something it does not.
+
+Memory is **presentation only**. It changes which cells the fog compositor
+re-covers; it changes nothing the simulation permits. `memory.test.js` asserts
+exactly that — the same inputs on the same maze produce identical positions,
+deaths and captures with the memory span set and unset — so it cannot make a
+level unwinnable, and the oracle's guarantees carry over untouched.
+
+What it does change is how hard a level is **for a human**, and that the solvers
+cannot measure. `playBlind` keeps its own record of what it has seen and has
+perfect recall of it; modelling human forgetting is not something a
+breadth-first search is honest about. So the `blindDeaths` figure for the last
+six levels reflects their traps and their hunter, not their memory span. They
+are harder than that number says. That is a limitation of the estimate, not a
+gap in the correctness proof.
+
 ## Layout
 
 ```
@@ -133,7 +160,7 @@ src/
   engine/          no React in here
     grid.js        walls as a mirrored bitmask; the only writer is setWall
     physics.js     ball movement, in cell units, on a fixed timestep
-    hunter.js      the chaser: pathing, waking, and the two fairness invariants
+    hunter.js      the ghost: pathing, waking, and the two fairness invariants
     loop.js        fixed-timestep loop — simulation speed is not refresh rate
     game.js        the rules, and nothing else
     render.js      the only module that thinks in pixels
@@ -173,6 +200,8 @@ while the two sides of every shared edge agree.
 - speed never exceeds the cap
 - the hunter never leaves the maze, never crosses a closed edge, and never moves
   further in one step than its own speed
+- fading memory changes no position, death or capture — it is a drawing rule,
+  and a run with it set matches a run without it exactly
 
 `ballDrawMetrics` in `render.js` exists so a test can assert that the ball's ink
 stays inside its collision radius. Ink drawn past that radius reads as clipping

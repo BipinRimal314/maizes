@@ -73,6 +73,22 @@ const CHAPTERS = [
     count: 5,
     seed: 4000,
   },
+  // Memory goes at level 25, by the same rule that governed fog and the
+  // hunter: identical to the chapter before it in every other respect.
+  {
+    name: 'Forgetting',
+    blurb: 'You will still walk it. You just will not keep it.',
+    tier: 'fading',
+    count: 3,
+    seed: 4500,
+  },
+  {
+    name: 'Nothing Stays',
+    blurb: 'It closes up behind you almost as fast as you open it.',
+    tier: 'vanishing',
+    count: 3,
+    seed: 5000,
+  },
 ]
 
 function build() {
@@ -111,6 +127,7 @@ function build() {
         `${String(Date.now() - started).padStart(4)}ms  route=${String(d.routeLength).padStart(3)} ` +
         `flags=${json.f.length} traps=${json.t.length} fog=${json.fog ?? '-'} ` +
         `hunter=${json.h ? `${(json.h[0] / 1000).toFixed(0)}s` : '-'} ` +
+        `mem=${json.m ? `${(json.m / 1000).toFixed(1)}s` : '∞'} ` +
         `perfect=${d.perfectSeconds.toFixed(0)}s blindDeaths=${d.blindDeaths}` +
         (d.blindCaught ? ` caught=${d.blindCaught}` : '')
       )

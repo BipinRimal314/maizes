@@ -1,11 +1,12 @@
 /**
  * The maze.
  *
- * A grid is walls plus four kinds of contents, and nothing else:
+ * A grid is walls plus five kinds of contents, and nothing else:
  *
  *   flags   you must capture every one to unlock the exit
  *   traps   invisible; stepping on one sends you back to the start
  *   fog     a radius, or null
+ *   memory  ms a walked cell stays remembered, or null for forever
  *   hunter  `{ spawnMs, speed }`, or null; see hunter.js
  *
  * That is the whole vocabulary. The previous version had nine mechanics
@@ -44,6 +45,7 @@ function createGrid(cols, rows) {
     start: { x: 0, y: 0 },
     end: { x: cols - 1, y: rows - 1 },
     fog: null,
+    memory: null,
     hunter: null,
   }
 }
@@ -136,6 +138,7 @@ function cloneGrid(grid) {
     start: { ...grid.start },
     end: { ...grid.end },
     fog: grid.fog,
+    memory: grid.memory,
     hunter: grid.hunter ? { ...grid.hunter } : null,
   }
 }

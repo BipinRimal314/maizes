@@ -1,5 +1,5 @@
 /*
- * Puzzles.
+ * Maizes.
  *
  * Warm and soft on the outside so the cruelty underneath reads as a joke.
  * Everything is a class; nothing is an inline style object, because the last
@@ -19,8 +19,8 @@
   --ink-soft: #6b6455;
   --line: #e4dac2;
 
-  --flag: #c2185b;
-  --flag-soft: #fce4ec;
+  --flag: #b4552d;
+  --flag-soft: #f7e9dd;
   --exit: #1b8f5a;
   --exit-soft: #e3f4ec;
   --trap: #e53935;
@@ -29,6 +29,8 @@
   --fog-soft: #ecebe6;
   --hunter: #5b2333;
   --hunter-soft: #f6e7ea;
+  --fading: #6a5aa8;
+  --fading-soft: #eeebf8;
 
   --display: 'Plus Jakarta Sans', system-ui, sans-serif;
   --body: 'Be Vietnam Pro', system-ui, sans-serif;
@@ -158,6 +160,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .tag--trap { background: var(--trap-soft); color: var(--trap); }
 .tag--fog { background: var(--fog-soft); color: var(--fog); }
 .tag--hunter { background: var(--hunter-soft); color: var(--hunter); }
+.tag--fading { background: var(--fading-soft); color: var(--fading); }
 
 /* --------------------------------------------------------------------- play */
 

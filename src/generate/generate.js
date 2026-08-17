@@ -51,6 +51,23 @@ const TIERS = {
     cols: 14, rows: 14, loops: 0.10, flags: 3, traps: 5, fog: 3.0,
     hunter: { speed: 0.095, margin: 1.8 },
   },
+
+  // `fading` is `cruel` with a memory that rots, and nothing else changed. The
+  // trail you leave closes up behind you, so the map you have built in your
+  // head stops matching the one on screen.
+  fading: {
+    cols: 14, rows: 14, loops: 0.10, flags: 3, traps: 5, fog: 3.0,
+    memory: 7000,
+    hunter: { speed: 0.095, margin: 1.8 },
+  },
+
+  // Same again, only the memory is shorter — the one variable tightening, the
+  // way the fog radius tightens from chapter to chapter.
+  vanishing: {
+    cols: 14, rows: 14, loops: 0.10, flags: 3, traps: 5, fog: 3.0,
+    memory: 2500,
+    hunter: { speed: 0.095, margin: 1.8 },
+  },
 }
 
 /**
@@ -147,6 +164,7 @@ function buildCandidate(seed, tier) {
 
   const { grid, route } = built
   grid.fog = tier.fog
+  grid.memory = tier.memory ?? null
 
   if (!placeFlags(grid, route, rng, tier.flags)) return null
   if (!placeTraps(grid, route, rng, tier.traps)) return null
@@ -245,6 +263,7 @@ function toJSON(level, name) {
     f: grid.flags.map((f) => [f.x, f.y]),
     t: grid.traps.map((t) => [t.x, t.y]),
     fog: grid.fog,
+    m: grid.memory,
     h: grid.hunter ? [grid.hunter.spawnMs, grid.hunter.speed] : null,
     difficulty: level.difficulty,
   }
@@ -260,6 +279,7 @@ function fromJSON(data) {
     flags: data.f.map(([x, y]) => ({ x, y })),
     traps: data.t.map(([x, y]) => ({ x, y })),
     fog: data.fog ?? null,
+    memory: data.m ?? null,
     hunter: data.h ? { spawnMs: data.h[0], speed: data.h[1] } : null,
   }
 }

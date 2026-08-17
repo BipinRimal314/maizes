@@ -1,5 +1,5 @@
 {
-  "name": "puzzles",
+  "name": "maizes",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -30,5 +30,5 @@
     "vite": "^8.0.1",
     "vitest": "^4.1.10"
   },
-  "description": "A maze game where the difficulty is what you cannot see. Every level is generated and proven beatable by a solver before it ships."
+  "description": "A maze game where the difficulty is what you cannot see. Collect the maize, outrun the ghost. Every level is generated and proven beatable by a solver before it ships."
 }

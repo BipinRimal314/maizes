@@ -76,7 +76,7 @@ describe('the app boots', () => {
   it('reaches the level list', async () => {
     global.fetch = vi.fn(async () => ({ ok: true, json: async () => levelData }))
     const view = await mount(<App />)
-    expect(view.text).toContain('puzzles')
+    expect(view.text).toContain('maizes')
     expect(view.text).toContain('Warm Up')
     expect(errors, errors.join('\n')).toHaveLength(0)
     await view.unmount()
@@ -96,7 +96,7 @@ describe('a level mounts and runs', () => {
       <Play level={level} index={0} total={20} onBack={() => {}} onNext={() => {}} />
     )
     expect(view.text).toContain(level.name)
-    expect(view.text).toContain('flags')
+    expect(view.text).toContain('maize')
     expect(view.text).toContain('deaths')
     expect(view.container.querySelector('canvas')).not.toBeNull()
     expect(errors, errors.join('\n')).toHaveLength(0)
@@ -115,7 +115,7 @@ describe('a level mounts and runs', () => {
     const view = await mount(
       <Play level={hunted} index={15} total={24} onBack={() => {}} onNext={() => {}} />
     )
-    expect(view.text).toContain('quiet')
+    expect(view.text).toContain('ghost in')
     expect(errors, errors.join('\n')).toHaveLength(0)
     await view.unmount()
   })

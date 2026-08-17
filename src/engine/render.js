@@ -23,13 +23,16 @@ const COLORS = {
   start: '#0d656e',
   exit: '#1b8f5a',
   exitLocked: '#b3ad9c',
-  flag: '#c2185b',
+  flag: '#b4552d',          // the earth an ear is standing in
   flagTaken: '#ded6c2',
+  maize: '#f2b01e',
+  maizeKernel: '#c98410',
+  maizeHusk: '#4e9c46',
   ball: '#fdd835',
   ballRim: '#ffffff',
   ballShine: 'rgba(255,255,255,0.5)',
   trapFlash: '#e53935',
-  captureFlash: '#c2185b',
+  captureFlash: '#f2b01e',
   fog: '48, 45, 38',
   hunter: '#5b2333',
   hunterEye: '#fdf6e6',
@@ -81,18 +84,50 @@ function marker(ctx, x, y, cellSize, color) {
   ctx.fill()
 }
 
-function drawFlagIcon(ctx, x, y, cellSize, color) {
-  const px = x * cellSize + cellSize * 0.38
-  const py = y * cellSize + cellSize * 0.26
-  const pole = Math.max(1.5, cellSize * 0.055)
-  ctx.fillStyle = color
-  ctx.fillRect(px, py, pole, cellSize * 0.48)
+/**
+ * An ear of maize: a husk leaf either side, a cob, and kernels.
+ *
+ * Drawn rather than set as an emoji so it scales with the cell and keeps the
+ * same weight as the rest of the board — the emoji renders at a different size
+ * and colour on every platform, which on a 10px cell reads as a smudge.
+ */
+function drawMaizeIcon(ctx, x, y, cellSize) {
+  const cx = (x + 0.5) * cellSize
+  const cy = (y + 0.5) * cellSize
+  const h = cellSize * 0.5      // cob height
+  const w = cellSize * 0.22     // cob width
+
+  // husk leaves
+  ctx.fillStyle = COLORS.maizeHusk
+  for (const side of [-1, 1]) {
+    ctx.beginPath()
+    ctx.moveTo(cx, cy - h * 0.34)
+    ctx.quadraticCurveTo(cx + side * w * 1.5, cy - h * 0.1, cx + side * w * 0.55, cy + h * 0.5)
+    ctx.quadraticCurveTo(cx + side * w * 0.3, cy + h * 0.05, cx, cy - h * 0.34)
+    ctx.closePath()
+    ctx.fill()
+  }
+
+  // cob
+  ctx.fillStyle = COLORS.maize
   ctx.beginPath()
-  ctx.moveTo(px + pole, py)
-  ctx.lineTo(px + cellSize * 0.3, py + cellSize * 0.11)
-  ctx.lineTo(px + pole, py + cellSize * 0.22)
-  ctx.closePath()
+  ctx.ellipse(cx, cy, w, h * 0.5, 0, 0, Math.PI * 2)
   ctx.fill()
+
+  // kernels, only when there is room for them to read as kernels
+  if (cellSize >= 22) {
+    ctx.fillStyle = COLORS.maizeKernel
+    const rows = 4
+    for (let r = 0; r < rows; r++) {
+      const ky = cy - h * 0.28 + (r * h * 0.56) / (rows - 1)
+      const inset = Math.abs(r - (rows - 1) / 2) / rows
+      for (const kx of [-1, 0, 1]) {
+        ctx.beginPath()
+        ctx.arc(cx + kx * w * 0.5 * (1 - inset), ky, Math.max(0.7, cellSize * 0.03), 0, Math.PI * 2)
+        ctx.fill()
+      }
+    }
+  }
 }
 
 function drawMaze(ctx, game, cellSize) {
@@ -143,7 +178,7 @@ function drawMaze(ctx, game, cellSize) {
       ctx.textBaseline = 'middle'
       ctx.fillText('\u{2713}', (flag.x + 0.5) * cellSize, (flag.y + 0.5) * cellSize)
     } else {
-      drawFlagIcon(ctx, flag.x, flag.y, cellSize, '#fff')
+      drawMaizeIcon(ctx, flag.x, flag.y, cellSize)
     }
   }
 
@@ -306,6 +341,11 @@ function getFogCanvas(width, height) {
  * been, and a soft radial hole around them. Filling one opaque rectangle per
  * cell gives the lit area a hard stair-stepped border and makes a remembered
  * cell hard to tell from a lit one.
+ *
+ * On `memory` levels the punched holes close again with age, so the trail
+ * behind you rots at the far end while you are still walking. `grid.memory` is
+ * how many milliseconds a cell stays remembered; null means forever, which is
+ * every level up to the chapter that takes it away.
  */
 function drawFog(ctx, game, cellSize) {
   const { grid, ball } = game
@@ -321,11 +361,21 @@ function drawFog(ctx, game, cellSize) {
   fctx.fillRect(0, 0, width, height)
 
   fctx.globalCompositeOperation = 'destination-out'
-  fctx.fillStyle = `rgba(0,0,0,${1 - MEMORY_ALPHA})`
-  for (const id of game.visited) {
+  const hole = 1 - MEMORY_ALPHA
+  fctx.fillStyle = `rgba(0,0,0,${hole})`
+
+  for (const [id, seenAt] of game.visited) {
+    let strength = 1
+    if (grid.memory !== null) {
+      const age = game.now - seenAt
+      if (age >= grid.memory) continue          // forgotten completely
+      // ease out, so a cell dims gently for most of its life and then goes
+      strength = (1 - age / grid.memory) ** 0.65
+    }
     const comma = id.indexOf(',')
     const x = +id.slice(0, comma)
     const y = +id.slice(comma + 1)
+    if (grid.memory !== null) fctx.fillStyle = `rgba(0,0,0,${hole * strength})`
     fctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize)
   }
 

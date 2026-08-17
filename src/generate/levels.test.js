@@ -195,6 +195,39 @@ describe('the campaign ramp', () => {
     }
   })
 
+  const FIRST_FADING_LEVEL = 25
+
+  it('takes memory away at level 25', () => {
+    const first = levels.findIndex((l) => l.m)
+    expect(first + 1, 'first fading level number').toBe(FIRST_FADING_LEVEL)
+  })
+
+  it('keeps memory permanent everywhere before that', () => {
+    for (const level of levels.slice(0, FIRST_FADING_LEVEL - 1)) {
+      expect(level.m ?? null, `${level.name}`).toBeNull()
+    }
+  })
+
+  it('changes only the memory on the level that takes it away', () => {
+    // the same one-new-variable rule that governs fog and the hunter
+    const before = levels[FIRST_FADING_LEVEL - 2]
+    const after = levels[FIRST_FADING_LEVEL - 1]
+    expect(after.c).toBe(before.c)
+    expect(after.r).toBe(before.r)
+    expect(after.f.length).toBe(before.f.length)
+    expect(after.t.length).toBe(before.t.length)
+    expect(after.fog).toBe(before.fog)
+    expect(before.m ?? null).toBeNull()
+    expect(after.m).toBeGreaterThan(0)
+  })
+
+  it('only shortens memory once it starts fading, never lengthens it', () => {
+    const spans = levels.filter((l) => l.m).map((l) => l.m)
+    for (let i = 1; i < spans.length; i++) {
+      expect(spans[i], `level ${i}`).toBeLessThanOrEqual(spans[i - 1])
+    }
+  })
+
   it('never gets easier for a blind player as it goes on', () => {
     const byChapter = new Map()
     for (const level of levels) {

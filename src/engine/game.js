@@ -76,7 +76,10 @@ function createGame(grid) {
 
     hunter: createHunter(grid),
 
-    visited: new Set([key(grid.start.x, grid.start.y)]),
+    // cell -> the game time you were last standing in it. A Map rather than a
+    // Set because on `memory` levels the trail behind you fades with age, so
+    // "when" is as load-bearing as "whether".
+    visited: new Map([[key(grid.start.x, grid.start.y), 0]]),
 
     // transient presentation state, read by the renderer
     flash: null,         // { x, y, until, kind: 'trap' | 'flag' }
@@ -121,7 +124,7 @@ function capture(game, at) {
   sleepHunter(game.hunter, game.now)
   game.flash = { x: at.x, y: at.y, until: game.now + CAPTURE_FLASH_MS, kind: 'flag' }
   game.quip = game.exitOpen
-    ? 'every flag taken. the exit is open.'
+    ? 'every ear picked. the exit is open.'
     : 'got one. back you go.'
   emit(game, game.exitOpen ? 'unlock' : 'capture')
   if (game.onCapture) game.onCapture(at)
@@ -147,7 +150,8 @@ function stepGame(game) {
     return
   }
 
-  game.visited.add(id)
+  // rewritten every step, so standing in a cell keeps its memory fresh
+  game.visited.set(id, game.now)
 
   if (game.exitOpen && cell.x === game.grid.end.x && cell.y === game.grid.end.y) {
     game.won = true
@@ -178,7 +182,7 @@ function restartGame(game) {
   game.captured.clear()
   game.exitOpen = game.grid.flags.length === 0
   game.visited.clear()
-  game.visited.add(key(game.grid.start.x, game.grid.start.y))
+  game.visited.set(key(game.grid.start.x, game.grid.start.y), 0)
   game.flash = null
   game.quip = ''
 }

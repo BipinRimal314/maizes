@@ -46,7 +46,7 @@ function App() {
   }, [])
 
   if (error) return <div className="loading"><p>could not load levels: {error}</p></div>
-  if (!levels) return <div className="loading"><h1 className="levels__title">puzzles</h1><p>loading…</p></div>
+  if (!levels) return <div className="loading"><h1 className="levels__title">maizes</h1><p>loading…</p></div>
 
   if (current !== null) {
     return (

@@ -17,8 +17,8 @@ function Levels({ levels, onPick }) {
   return (
     <div className="levels">
       <header className="levels__head">
-        <h1 className="levels__title">puzzles</h1>
-        <p className="levels__tag">why is it called puzzles? that&rsquo;s the puzzle.</p>
+        <h1 className="levels__title">maizes</h1>
+        <p className="levels__tag">why is it called maizes? that&rsquo;s the puzzle.</p>
         {done > 0 && <p className="levels__progress">{done} of {levels.length} escaped</p>}
       </header>
 
@@ -36,12 +36,13 @@ function Levels({ levels, onPick }) {
                     {isDone(level.name) && <span className="card-level__done">{'\u{2B50}'}</span>}
                   </span>
                   <span className="card-level__tags">
-                    <span className="tag tag--flag">{level.grid.flags.length} flags</span>
+                    <span className="tag tag--flag">{level.grid.flags.length} maize</span>
                     {level.grid.traps.length > 0 && (
                       <span className="tag tag--trap">{level.grid.traps.length} traps</span>
                     )}
                     {level.grid.fog !== null && <span className="tag tag--fog">fog</span>}
                     {level.grid.hunter && <span className="tag tag--hunter">hunted</span>}
+                    {level.grid.memory !== null && <span className="tag tag--fading">fading</span>}
                   </span>
                   {best && <span className="card-level__best">best: {best.deaths} deaths</span>}
                 </button>

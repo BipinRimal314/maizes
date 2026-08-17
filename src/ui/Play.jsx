@@ -101,7 +101,7 @@ function Play({ level, index, total, isLast = false, onBack, onNext }) {
           <span className="hud__value">{clock(hud.now)}</span>
         </div>
         <div className={`hud__tile hud__tile--flags${hud.exitOpen ? ' is-complete' : ''}`}>
-          <span className="hud__label">flags</span>
+          <span className="hud__label">maize</span>
           <span className="hud__value">{hud.captured}<span className="hud__of">/{hud.flagsTotal}</span></span>
         </div>
         <div className="hud__tile">
@@ -110,8 +110,8 @@ function Play({ level, index, total, isLast = false, onBack, onNext }) {
         </div>
         {hud.hasHunter && (
           <div className={`hud__tile hud__tile--hunter${hud.hunterAwake ? ' is-awake' : ''}`}>
-            <span className="hud__label">{hud.hunterAwake ? 'hunter' : 'quiet'}</span>
-            <span className="hud__value">{hud.hunterAwake ? '\u{1F441}' : `${hud.hunterIn}s`}</span>
+            <span className="hud__label">{hud.hunterAwake ? 'ghost' : 'ghost in'}</span>
+            <span className="hud__value">{hud.hunterAwake ? '\u{1F47B}' : `${hud.hunterIn}s`}</span>
           </div>
         )}
       </div>

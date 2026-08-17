@@ -26,7 +26,7 @@ function Finale({ total, onBack }) {
         <h2 className="card__title">that&rsquo;s all of them.</h2>
         <p className="card__sub">
           {complete
-            ? 'twenty-four mazes, and the thing in the dark, and you got out of every one.'
+            ? 'thirty mazes, every ear of maize in them, and the thing in the dark. all of it.'
             : 'you reached the end. some levels back there are still waiting for you.'}
         </p>
 
@@ -52,7 +52,7 @@ function Finale({ total, onBack }) {
         </p>
 
         <p className="card__punchline">
-          so why is it called <em>puzzles</em>?
+          so why is it called <em>maizes</em>?
           <br />
           <span className="card__punchline-answer">that&rsquo;s the puzzle.</span>
         </p>

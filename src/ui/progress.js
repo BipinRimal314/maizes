@@ -3,7 +3,7 @@
  * storage degrade to an in-memory record rather than throwing.
  */
 
-const STORAGE_KEY = 'puzzles:v1'
+const STORAGE_KEY = 'maizes:v1'
 let cache = null
 
 function read() {
