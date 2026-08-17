@@ -34,28 +34,41 @@ const STEP_MS = 1000 / 60
 const RESPAWN_FLASH_MS = 450
 const CAPTURE_FLASH_MS = 700
 
+/*
+ * The farmer, out loud.
+ *
+ * These used to be the game sneering at the player — "have you tried being
+ * better at this?" — which was funny when the game was about suffering and is
+ * wrong now that it is about a man looking for his daughter. Nobody is being
+ * mocked here. It is a tired dad swearing the way a tired dad swears: mild,
+ * agricultural, faintly ridiculous, and every one of them turning back toward
+ * her before the line is out.
+ *
+ * The pattern is deliberate — an oath, then the worry underneath it. The oath
+ * is the whimsy and the second half is the reason you keep playing.
+ */
 const DEATH_QUIPS = [
-  "you're doing great, sweetie!",
-  'everyone makes mistakes. yours are just very frequent.',
-  'the maze believes in you. we think.',
-  "that was the maze's fault. definitely.",
-  'pain is just spicy progress.',
-  "still here? we're impressed, honestly.",
-  'have you tried being better at this?',
-  'suffering builds character. you have SO much character.',
-  "the maze whispers: 'again.'",
-  'breathe. then fail again.',
-  "we'd hug you but we're a maze.",
-  'nobody saw that. (everybody saw that.)',
+  'Oh, barnacles. Down a hole, at my age.',
+  'Sweet mother of harvest. Mind your feet, old man.',
+  'Well, blister my boots. Up. She is still out there.',
+  'Great grieving gourds — who digs a pit in a field and leaves it open?',
+  'Tarnation. That is twice now. We need not tell her mother.',
+  'By the plough and all that pulls it. Again, then.',
+  'Heavens to Betsy. Nothing broken. Nothing that counts.',
+  "Corn's teeth. Forty years farming and never once fallen in a field.",
+  'Oh, thistles. Get up. Get up.',
+  'Sakes alive, the ground is against me now as well.',
+  'Jumping junebugs, that smarts. She would have laughed at that.',
+  'Blast and bother. Back to the start, and no nearer to her.',
 ]
 
 const CAUGHT_QUIPS = [
-  'it found you. it was always going to.',
-  'you were warned. gently, but you were warned.',
-  'faster next time. you are literally faster than it.',
-  'caught. embarrassing, given the speed difference.',
-  'it does not get tired. you might.',
-  'tag. you are it. you are always it.',
+  'Merciful heavens. It was right there beside me.',
+  'Sweet corn and salvation — it does not even hurry.',
+  'Oh, thistles. It has the measure of my hat now.',
+  'Land sakes. Faster, old man. Faster.',
+  'By the barn door, that thing is patient.',
+  'Bless and keep us. Do not let her see me like this.',
 ]
 
 function createGame(grid) {
@@ -124,8 +137,8 @@ function capture(game, at) {
   sleepHunter(game.hunter, game.now)
   game.flash = { x: at.x, y: at.y, until: game.now + CAPTURE_FLASH_MS, kind: 'flag' }
   game.quip = game.exitOpen
-    ? 'every ear picked. the exit is open.'
-    : 'got one. back you go.'
+    ? 'That is the last of them. The way on is open. Good girl.'
+    : 'One more of hers. All the way back with it, then.'
   emit(game, game.exitOpen ? 'unlock' : 'capture')
   if (game.onCapture) game.onCapture(at)
 }
@@ -167,7 +180,7 @@ function stepGame(game) {
   if (stepHunter(game.hunter, game.grid, game.ball, game.now)) {
     die(game, cell, 'hunter')
   } else if (wasAsleep && game.hunter.active) {
-    game.quip = 'something is awake. it knows where you are.'
+    game.quip = 'Something is up and about out there. It knows where I am.'
     emit(game, 'hunter')
   }
 }

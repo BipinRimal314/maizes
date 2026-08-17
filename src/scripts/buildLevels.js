@@ -32,7 +32,7 @@ const CHAPTERS = [
   {
     name: 'Warm Up',
     terrain: 'field',
-    blurb: 'A maze, and one flag to fetch. Enjoy it.',
+    blurb: 'My own field, and one ear of hers lying in it. That is all this is.',
     tier: 'gentle',
     count: 4,
     seed: 1000,
@@ -40,7 +40,7 @@ const CHAPTERS = [
   {
     name: 'Two Trips',
     terrain: 'track',
-    blurb: 'Two flags now, and the floor is not entirely trustworthy.',
+    blurb: 'Two of them out here now, and the ground not to be trusted.',
     tier: 'brisk',
     count: 3,
     seed: 2000,
@@ -50,7 +50,7 @@ const CHAPTERS = [
   {
     name: 'First Light',
     terrain: 'dusk',
-    blurb: 'Same size, same traps. You just cannot see it any more.',
+    blurb: 'The same field it always was. I simply cannot see it any more.',
     tier: 'misty',
     count: 4,
     seed: 2500,
@@ -58,7 +58,7 @@ const CHAPTERS = [
   {
     name: 'The Fog',
     terrain: 'woods',
-    blurb: 'Closer in now. You will have to remember what you walked through.',
+    blurb: 'Closer in. I shall have to remember what I walked through.',
     tier: 'blind',
     count: 4,
     seed: 3000,
@@ -69,7 +69,7 @@ const CHAPTERS = [
   {
     name: 'Company',
     terrain: 'night',
-    blurb: 'Same maze as before. You are just not alone in it any more.',
+    blurb: 'The same as before. I am only not alone in it now.',
     tier: 'hunted',
     count: 4,
     seed: 3500,
@@ -77,7 +77,7 @@ const CHAPTERS = [
   {
     name: 'No Mercy',
     terrain: 'ridge',
-    blurb: 'Bigger, darker, faster, and still looking for you.',
+    blurb: 'Wider, darker, and something in it still looking for me.',
     tier: 'cruel',
     count: 5,
     seed: 4000,
@@ -87,7 +87,7 @@ const CHAPTERS = [
   {
     name: 'Forgetting',
     terrain: 'marsh',
-    blurb: 'You will still walk it. You just will not keep it.',
+    blurb: 'I will walk every foot of it. I will not keep a step.',
     tier: 'fading',
     count: 3,
     seed: 4500,
@@ -95,7 +95,7 @@ const CHAPTERS = [
   {
     name: 'Nothing Stays',
     terrain: 'ember',
-    blurb: 'It closes up behind you almost as fast as you open it.',
+    blurb: 'It closes behind me near as fast as I can open it.',
     tier: 'vanishing',
     count: 3,
     seed: 5000,

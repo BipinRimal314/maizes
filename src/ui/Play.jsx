@@ -155,15 +155,17 @@ function Play({ level, index, total, isLast = false, onBack, onNext }) {
           </div>
           <h2 className="card__title">
             {racing
-              ? (saved ? 'faster.' : 'not fast enough.')
-              : (result.deaths === 0 ? 'clean run.' : 'you got out.')}
+              ? (saved ? 'Faster.' : 'Not fast enough.')
+              : (result.deaths === 0 ? 'Not one stumble.' : 'Through.')}
           </h2>
           <p className="card__sub">
             {racing
               ? (saved
-                ? `${clock(result.par - result.ms)} to the good.`
-                : `${clock(result.ms - result.par)} short. this field again.`)
-              : (result.deaths === 0 ? 'not one mistake. suspicious.' : 'eventually.')}
+                ? `${clock(result.par - result.ms)} to the good. Keep on.`
+                : `${clock(result.ms - result.par)} short. This field again, then.`)
+              : (result.deaths === 0
+                ? 'Clean as a whistle. Do not let it go to your head.'
+                : 'Slow, and sore, and through all the same.')}
           </p>
           <div className="card__stats">
             <div className="stat"><span className="stat__label">time</span><span className="stat__value">{clock(result.ms)}</span></div>
