@@ -9,6 +9,7 @@ import { fromJSON } from './generate/generate.js'
 import { createGame, stepGame } from './engine/game.js'
 import { drawScene } from './engine/render.js'
 import { isMuted, setMuted } from './engine/sound.js'
+import { resetCache } from './ui/progress.js'
 import levelData from '../public/levels.json'
 
 /**
@@ -37,6 +38,7 @@ beforeEach(() => {
     constructor(w, h) { this.width = w; this.height = h }
     getContext() { return CTX }
   }
+  resetCache()
   errors = []
   vi.spyOn(console, 'error').mockImplementation((...a) => errors.push(a.join(' ')))
 
@@ -58,9 +60,19 @@ async function mount(element) {
   await act(async () => { await new Promise((r) => setTimeout(r, 15)) })
   return {
     container,
-    text: container.textContent,
+    get text() { return container.textContent },
     unmount: async () => { await act(async () => { root.unmount() }); container.remove() },
   }
+}
+
+/** Click through any story cards standing between here and the level list. */
+async function skipStory(view) {
+  for (let i = 0; i < 10; i++) {
+    const button = view.container.querySelector('.card--story .btn--primary')
+    if (!button) return
+    await act(async () => { button.click() })
+  }
+  throw new Error('story cards never ran out')
 }
 
 const level = { ...levelData[0], grid: fromJSON(levelData[0]) }
@@ -77,6 +89,9 @@ describe('the app boots', () => {
   it('reaches the level list', async () => {
     global.fetch = vi.fn(async () => ({ ok: true, json: async () => levelData }))
     const view = await mount(<App />)
+    // the prologue comes first on a fresh save
+    expect(view.text).toContain('Journey to Maizy')
+    await skipStory(view)
     expect(view.text).toContain('maizes')
     expect(view.text).toContain('Warm Up')
     expect(errors, errors.join('\n')).toHaveLength(0)
@@ -158,6 +173,45 @@ describe('a level mounts and runs', () => {
     await view.unmount()
   })
 
+  it('does not let the board swallow a press aimed at the menu', async () => {
+    /*
+     * The bug this pins down: the board captured the pointer for *any* press
+     * inside it, including one on a menu button. A real browser then retargets
+     * the click to the capturing element and the button never fires, which is
+     * why every menu button did nothing. jsdom does not model that retargeting,
+     * so asserting on the click is useless here — the capture is the defect.
+     */
+    const view = await mount(
+      <Play level={level} index={0} total={30} onBack={() => {}} onNext={() => {}} />
+    )
+    await act(async () => { view.container.querySelector('.play__menu').click() })
+
+    const board = view.container.querySelector('.board')
+    const captured = []
+    board.setPointerCapture = (id) => captured.push(id)
+    board.releasePointerCapture = () => {}
+
+    const button = [...view.container.querySelectorAll('.board__overlay button')]
+      .find((b) => b.textContent === 'back to levels')
+    await act(async () => {
+      button.dispatchEvent(new PointerEvent('pointerdown', {
+        bubbles: true, pointerId: 1, clientX: 10, clientY: 10,
+      }))
+    })
+    expect(captured, 'the board grabbed a press meant for the menu').toEqual([])
+
+    // and the canvas itself still drives the stick
+    const canvas = view.container.querySelector('canvas')
+    await act(async () => {
+      canvas.dispatchEvent(new PointerEvent('pointerdown', {
+        bubbles: true, pointerId: 2, clientX: 10, clientY: 10,
+      }))
+    })
+    expect(captured, 'the canvas stopped driving the stick').toEqual([2])
+
+    await view.unmount()
+  })
+
   it('leaves the board through the menu without a keypress', async () => {
     let left = false
     const view = await mount(
@@ -210,6 +264,7 @@ describe('the finale', () => {
   it('is what the last level leads to', async () => {
     global.fetch = vi.fn(async () => ({ ok: true, json: async () => levelData }))
     const view = await mount(<App />)
+    await skipStory(view)
 
     // jump straight to the last level, win it, and take the offered exit
     const cards = view.container.querySelectorAll('.card-level')

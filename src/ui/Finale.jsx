@@ -1,4 +1,4 @@
-import { totals } from './progress.js'
+import { totals, speedrunActive, speedrunFinished, speedrunProgress, maizeCollected } from './progress.js'
 
 function duration(ms) {
   const total = Math.floor(ms / 1000)
@@ -15,19 +15,28 @@ function duration(ms) {
  * sitting, so they survive a reload and mean something — "your best of every
  * level, added up" is a number worth chasing down.
  */
-function Finale({ total, onBack }) {
+function Finale({ levels = [], total, onBack }) {
   const stats = totals()
   const complete = stats.levels >= total
+  const rescued = speedrunFinished()
+  const racing = speedrunActive() && !rescued
+  const run = racing ? speedrunProgress(levels) : null
 
   return (
     <div className="result">
       <div className="card card--finale">
-        <div className="card__emoji">{'\u{1F3C1}'}</div>
-        <h2 className="card__title">that&rsquo;s all of them.</h2>
+        <div className="card__emoji">{rescued ? '\u{1F33D}' : racing ? '\u{1F3C3}' : '\u{1F3C1}'}</div>
+        <h2 className="card__title">
+          {rescued ? 'you got her back.' : racing ? 'still running.' : 'that\u2019s all of them.'}
+        </h2>
         <p className="card__sub">
-          {complete
-            ? 'thirty mazes, every ear of maize in them, and the thing in the dark. all of it.'
-            : 'you reached the end. some levels back there are still waiting for you.'}
+          {rescued
+            ? 'thirty fields, twice, and the second time fast enough.'
+            : racing
+              ? `${run.beaten} of ${run.total} fields beaten. the rest are still slower than they were.`
+              : complete
+                ? 'thirty mazes, every ear of maize in them, and the thing in the dark. all of it.'
+                : 'you reached the end. some levels back there are still waiting for you.'}
         </p>
 
         <div className="card__stats">
@@ -40,8 +49,10 @@ function Finale({ total, onBack }) {
             <span className="stat__value">{duration(stats.ms)}</span>
           </div>
           <div className="stat">
-            <span className="stat__label">deaths</span>
-            <span className="stat__value">{stats.deaths}</span>
+            <span className="stat__label">{levels.length > 0 ? 'maize' : 'deaths'}</span>
+            <span className="stat__value">
+              {levels.length > 0 ? maizeCollected(levels) : stats.deaths}
+            </span>
           </div>
         </div>
 
@@ -51,11 +62,21 @@ function Finale({ total, onBack }) {
             : 'not one clean run. there is still something left to do.'}
         </p>
 
-        <p className="card__punchline">
-          so why is it called <em>maizes</em>?
-          <br />
-          <span className="card__punchline-answer">that&rsquo;s the puzzle.</span>
-        </p>
+        {rescued
+          ? (
+            <p className="card__punchline">
+              &ldquo;thank you for helping me reach my daughter.&rdquo;
+              <br />
+              <span className="card__punchline-answer">&mdash; the farmer</span>
+            </p>
+          )
+          : (
+            <p className="card__punchline">
+              so why is it called <em>maizes</em>?
+              <br />
+              <span className="card__punchline-answer">that&rsquo;s the puzzle.</span>
+            </p>
+          )}
 
         <div className="card__actions">
           <button className="btn btn--primary" onClick={onBack}>levels</button>

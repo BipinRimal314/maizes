@@ -1,18 +1,43 @@
 /**
- * Level completion, persisted best-effort. Private browsing and disabled
- * storage degrade to an in-memory record rather than throwing.
+ * What the player has done, persisted best-effort. Private browsing and
+ * disabled storage degrade to an in-memory record rather than throwing.
+ *
+ * Three things live here:
+ *
+ *   done       best run per level: fewest deaths, then fastest
+ *   story      which narrative beats have been shown, so none repeats
+ *   speedrun   the second run through, and the times it has to beat
+ *
+ * The speedrun's `par` is a **snapshot**, copied out of `done` at the moment
+ * the run starts and never updated after. Reading the live bests instead would
+ * move the target every time the player improved, so beating your own time
+ * would be impossible by construction — you would be racing a number that
+ * always equalled your best.
  */
 
 const STORAGE_KEY = 'maizes:v1'
+
+const EMPTY = () => ({
+  done: {},
+  story: {},
+  speedrun: { active: false, par: {}, beaten: {}, finished: false },
+})
+
 let cache = null
 
 function read() {
   if (cache) return cache
-  cache = { done: {} }
+  cache = EMPTY()
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     const parsed = raw ? JSON.parse(raw) : null
-    if (parsed && typeof parsed.done === 'object') cache = parsed
+    if (parsed && typeof parsed.done === 'object') {
+      // merge rather than replace, so a save written by an older build without
+      // the story or speedrun keys still loads
+      cache = { ...EMPTY(), ...parsed }
+      cache.story = parsed.story ?? {}
+      cache.speedrun = { ...EMPTY().speedrun, ...(parsed.speedrun ?? {}) }
+    }
   } catch { /* unavailable storage is not an error worth surfacing */ }
   return cache
 }
@@ -27,6 +52,16 @@ function recordWin(name, { deaths, ms }) {
   if (!previous || deaths < previous.deaths || (deaths === previous.deaths && ms < previous.ms)) {
     store.done[name] = { deaths, ms }
   }
+
+  // A speedrun leg is judged against the frozen par, not against `done`.
+  if (store.speedrun.active) {
+    const par = store.speedrun.par[name]
+    if (par != null && ms < par) {
+      const best = store.speedrun.beaten[name]
+      if (best == null || ms < best) store.speedrun.beaten[name] = ms
+    }
+  }
+
   write()
 }
 
@@ -45,4 +80,73 @@ function totals() {
   }
 }
 
-export { recordWin, isDone, bestFor, doneCount, totals, STORAGE_KEY }
+/** Ears of maize picked, counted only from levels actually finished. */
+function maizeCollected(levels) {
+  const store = read()
+  return levels.reduce(
+    (sum, level) => sum + (store.done[level.name] ? level.f.length : 0),
+    0
+  )
+}
+
+// ---------------------------------------------------------------- story beats
+
+const hasSeen = (id) => read().story[id] === true
+function markSeen(id) {
+  read().story[id] = true
+  write()
+}
+
+// ------------------------------------------------------------------ speedrun
+
+/** Freeze the current bests as the times to beat, and start the second run. */
+function startSpeedrun(levels) {
+  const store = read()
+  const par = {}
+  for (const level of levels) {
+    const best = store.done[level.name]
+    if (best) par[level.name] = best.ms
+  }
+  store.speedrun = { active: true, par, beaten: {}, finished: false }
+  write()
+  return store.speedrun
+}
+
+const speedrunActive = () => read().speedrun.active === true
+const speedrunFinished = () => read().speedrun.finished === true
+const parFor = (name) => read().speedrun.par[name] ?? null
+const beatenTime = (name) => read().speedrun.beaten[name] ?? null
+const isBeaten = (name) => read().speedrun.beaten[name] != null
+
+function speedrunProgress(levels) {
+  const store = read()
+  const target = levels.filter((level) => store.speedrun.par[level.name] != null)
+  return {
+    beaten: target.filter((level) => store.speedrun.beaten[level.name] != null).length,
+    total: target.length,
+  }
+}
+
+/** True once every level with a par has been beaten. */
+function speedrunComplete(levels) {
+  const { beaten, total } = speedrunProgress(levels)
+  return total > 0 && beaten === total
+}
+
+function finishSpeedrun() {
+  read().speedrun.finished = true
+  write()
+}
+
+/** Testing seam: drop the in-memory copy so the next read hits storage again. */
+function resetCache() {
+  cache = null
+}
+
+export {
+  recordWin, isDone, bestFor, doneCount, totals, maizeCollected,
+  hasSeen, markSeen,
+  startSpeedrun, speedrunActive, speedrunFinished, speedrunComplete,
+  speedrunProgress, parFor, beatenTime, isBeaten, finishSpeedrun,
+  resetCache, STORAGE_KEY,
+}

@@ -1,6 +1,6 @@
 import { useRef, useState, useCallback, useEffect } from 'react'
 import { createGame, restartGame } from '../engine/game.js'
-import { recordWin } from './progress.js'
+import { recordWin, parFor, speedrunActive } from './progress.js'
 import { playSound, isMuted, toggleMuted } from '../engine/sound.js'
 import { record } from './telemetry.js'
 import { useCellSize } from './useCellSize.js'
@@ -27,6 +27,14 @@ function Play({ level, index, total, isLast = false, onBack, onNext }) {
   const restartsRef = useRef(0)
   const wonRef = useRef(false)
 
+  // Read once per level rather than per render: the target must not move while
+  // the player is racing it.
+  const parRef = useRef(null)
+  if (parRef.current === null) {
+    parRef.current = speedrunActive() ? { ms: parFor(level.name) } : { ms: null }
+  }
+  const par = parRef.current.ms
+
   const gameRef = useRef(null)
   if (gameRef.current === null) {
     const game = createGame(level.grid)
@@ -41,7 +49,7 @@ function Play({ level, index, total, isLast = false, onBack, onNext }) {
         ms: game.now,
         restarts: restartsRef.current,
       })
-      setResult({ deaths: game.deaths, ms: game.now })
+      setResult({ deaths: game.deaths, ms: game.now, par: parRef.current.ms })
     }
     gameRef.current = game
   }
@@ -114,19 +122,34 @@ function Play({ level, index, total, isLast = false, onBack, onNext }) {
 
   if (result) {
     const seconds = Math.floor(result.ms / 1000)
+    const racing = result.par != null
+    const saved = racing && result.ms < result.par
+
     return (
       <div className="result">
         <div className="card">
-          <div className="card__emoji">{result.deaths === 0 ? '\u{1F3C6}' : result.deaths < 6 ? '\u{1F389}' : '\u{1F605}'}</div>
+          <div className="card__emoji">
+            {racing
+              ? (saved ? '\u{1F3C3}' : '\u{23F1}')
+              : (result.deaths === 0 ? '\u{1F3C6}' : result.deaths < 6 ? '\u{1F389}' : '\u{1F605}')}
+          </div>
           <h2 className="card__title">
-            {result.deaths === 0 ? 'clean run.' : 'you got out.'}
+            {racing
+              ? (saved ? 'faster.' : 'not fast enough.')
+              : (result.deaths === 0 ? 'clean run.' : 'you got out.')}
           </h2>
           <p className="card__sub">
-            {result.deaths === 0 ? 'not one mistake. suspicious.' : 'eventually.'}
+            {racing
+              ? (saved
+                ? `${clock(result.par - result.ms)} to the good.`
+                : `${clock(result.ms - result.par)} short. this field again.`)
+              : (result.deaths === 0 ? 'not one mistake. suspicious.' : 'eventually.')}
           </p>
           <div className="card__stats">
             <div className="stat"><span className="stat__label">time</span><span className="stat__value">{clock(result.ms)}</span></div>
-            <div className="stat"><span className="stat__label">deaths</span><span className="stat__value">{result.deaths}</span></div>
+            {racing
+              ? <div className="stat"><span className="stat__label">to beat</span><span className="stat__value">{clock(result.par)}</span></div>
+              : <div className="stat"><span className="stat__label">deaths</span><span className="stat__value">{result.deaths}</span></div>}
           </div>
           <div className="card__actions">
             {onNext && (
@@ -170,6 +193,12 @@ function Play({ level, index, total, isLast = false, onBack, onNext }) {
           <span className="hud__label">deaths</span>
           <span className="hud__value hud__value--deaths">{hud.deaths}</span>
         </div>
+        {par != null && (
+          <div className={`hud__tile hud__tile--par${hud.now > par ? ' is-blown' : ''}`}>
+            <span className="hud__label">{hud.now > par ? 'too slow' : 'beat'}</span>
+            <span className="hud__value">{clock(par)}</span>
+          </div>
+        )}
         {hud.hasHunter && (
           <div className={`hud__tile hud__tile--hunter${hud.hunterAwake ? ' is-awake' : ''}`}>
             <span className="hud__label">{hud.hunterAwake ? 'ghost' : 'ghost in'}</span>

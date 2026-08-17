@@ -1,8 +1,8 @@
 # Maizes
 
-Thirty mazes. You cannot see most of them. You are in there to collect maize,
-something in the later ones is looking for you, and towards the end you stop
-being able to trust your own map.
+Thirty mazes. You cannot see most of them. You are a farmer following a trail of
+dropped corn to the daughter who dropped it, something in the later ones is
+looking for you, and towards the end you stop being able to trust your own map.
 
 Why is it called Maizes? That's the puzzle.
 
@@ -37,6 +37,33 @@ survives your respawn can sit on the start square and kill you the instant you
 appear, which is not difficulty, it is a soft lock. Sleeping on every return
 also means the hunter's clock and your current attempt are the same clock, so
 the thing you have to reason about is exactly the thing on screen.
+
+## The story
+
+*Journey to Maizy.* Bandits took the corn and the farmer's daughter with it. She
+leaves a trail of ears in the dark; he follows it. At the end of it he trades
+every ear he gathered for her, and is told he is too late — **if only you were
+faster** — which is where the second run begins.
+
+The whole thing lives in `src/ui/story.js` and `Story.jsx` and touches neither
+the engine nor the generator. A beat is a card between levels; not one line of
+it can change what a level is or whether it can be finished. That separation is
+deliberate: this repo rests on levels being provably beatable, and a story that
+could reach into the rules is a story that could break the proof.
+
+`beatsAfterLevel` is a pure function, separate from the component, because it is
+the fiddliest part: it has to tell the last level of a chapter from the last
+level of the game, and the end of the first run from the end of the second.
+Testing that through a mounted component would mean actually winning thirty
+mazes.
+
+### The speedrun
+
+Finishing the campaign freezes your best time on every level as its **par**, and
+the second run asks you to beat all thirty. The freeze is the whole mechanic:
+read the live bests instead and the target moves every time you improve, so
+beating your own time becomes impossible by construction. `progress.js` snapshots
+`par` when the run starts and never touches it again.
 
 ## The campaign
 
@@ -223,9 +250,16 @@ src/
     oracle.js      every rule a level must satisfy
     generate.js    build, judge, fit a hunter, judge again, keep or discard
   ui/              React shell: input, sizing, HUD, level list, finale
+    story.js       the narrative, and which beat a level earns
+    progress.js    bests, beats seen, and the speedrun's frozen par
     telemetry.js   playtest events; inert unless configured
   scripts/         build-time campaign generation
 ```
+
+Boards are landscape (13x8 up to 18x11), not square, because the screen is: a
+square maze on a wide window is a postage stamp with a margin either side. Cell
+counts were held roughly constant across that change so the tiers stayed as hard
+as they were — 14x14 became 18x11, 196 cells against 198.
 
 Three invariants hold the engine together:
 

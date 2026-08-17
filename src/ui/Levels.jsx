@@ -1,5 +1,7 @@
 import { useState, useCallback } from 'react'
-import { isDone, bestFor, doneCount } from './progress.js'
+import {
+  isDone, bestFor, doneCount, speedrunActive, speedrunProgress, parFor, isBeaten,
+} from './progress.js'
 import { isMuted, toggleMuted } from '../engine/sound.js'
 import { enabled as telemetryOn, isRecording, toggleRecording } from './telemetry.js'
 
@@ -22,13 +24,19 @@ function Levels({ levels, onPick }) {
   }
 
   const done = doneCount()
+  const racing = speedrunActive()
+  const run = racing ? speedrunProgress(levels) : null
 
   return (
     <div className="levels">
       <header className="levels__head">
         <h1 className="levels__title">maizes</h1>
         <p className="levels__tag">why is it called maizes? that&rsquo;s the puzzle.</p>
-        {done > 0 && <p className="levels__progress">{done} of {levels.length} escaped</p>}
+        {racing
+          ? <p className="levels__progress levels__progress--racing">
+              running it back &middot; {run.beaten} of {run.total} fields beaten
+            </p>
+          : done > 0 && <p className="levels__progress">{done} of {levels.length} escaped</p>}
         <button
           className="levels__sound"
           onClick={onToggleSound}
@@ -46,10 +54,16 @@ function Levels({ levels, onPick }) {
             {chapter.levels.map((level) => {
               const best = bestFor(level.name)
               return (
-                <button className="card-level" key={level.name} onClick={() => onPick(level.index)}>
+                <button
+                  className={`card-level${racing && isBeaten(level.name) ? ' is-beaten' : ''}`}
+                  key={level.name}
+                  onClick={() => onPick(level.index)}
+                >
                   <span className="card-level__top">
                     <span className="card-level__n">{level.index + 1}</span>
-                    {isDone(level.name) && <span className="card-level__done">{'\u{2B50}'}</span>}
+                    {racing
+                      ? isBeaten(level.name) && <span className="card-level__done">{'\u{1F3C3}'}</span>
+                      : isDone(level.name) && <span className="card-level__done">{'\u{2B50}'}</span>}
                   </span>
                   <span className="card-level__tags">
                     <span className="tag tag--flag">{level.grid.flags.length} maize</span>
@@ -60,7 +74,13 @@ function Levels({ levels, onPick }) {
                     {level.grid.hunter && <span className="tag tag--hunter">hunted</span>}
                     {level.grid.memory !== null && <span className="tag tag--fading">fading</span>}
                   </span>
-                  {best && <span className="card-level__best">best: {best.deaths} deaths</span>}
+                  {racing
+                    ? parFor(level.name) != null && (
+                        <span className="card-level__best">
+                          beat {(parFor(level.name) / 1000).toFixed(1)}s
+                        </span>
+                      )
+                    : best && <span className="card-level__best">best: {best.deaths} deaths</span>}
                 </button>
               )
             })}

@@ -212,7 +212,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
   align-items: center;
   gap: 1rem;
   width: 100%;
-  max-width: var(--board-width, 32rem);
+  max-width: var(--board-width, min(100%, 88rem));
 }
 .play__back {
   background: var(--surface);
@@ -249,7 +249,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
   grid-template-columns: repeat(3, 1fr);
   gap: 0.6rem;
   width: 100%;
-  max-width: var(--board-width, 32rem);
+  max-width: var(--board-width, min(100%, 88rem));
 }
 
 .hud__tile {
@@ -403,6 +403,58 @@ button { font: inherit; color: inherit; cursor: pointer; }
   line-height: 1.7;
 }
 .card__punchline em { color: var(--flag); font-style: normal; }
+
+/* -------------------------------------------------------------------- story */
+
+.card--story { max-width: 34rem; text-align: left; }
+.story__title {
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: 1.45rem;
+  text-align: center;
+  margin-bottom: 1.4rem;
+}
+.story__lines { display: flex; flex-direction: column; gap: 0.9rem; }
+.story__lines p { font-size: 0.92rem; line-height: 1.75; color: var(--ink); }
+.story__lines p:first-child::first-letter {
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: 2.1rem;
+  float: left;
+  line-height: 1;
+  padding: 0.1rem 0.4rem 0 0;
+  color: var(--flag);
+}
+.card--story .card__actions { margin-top: 1.8rem; }
+
+.story__tally {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  margin: 1.6rem 0 0.4rem;
+  padding: 1rem;
+  background: var(--surface-dim);
+  border-radius: var(--radius);
+}
+.story__ear { width: 2.4rem; height: 2.4rem; }
+.story__count {
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: 2rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--flag);
+}
+.story__unit { font-size: 0.8rem; color: var(--ink-soft); }
+
+/* the speedrun: a time to beat, and the fields already beaten */
+.hud__tile--par .hud__value { color: var(--exit); }
+.hud__tile--par.is-blown { background: var(--trap-soft); border-color: var(--trap); }
+.hud__tile--par.is-blown .hud__label,
+.hud__tile--par.is-blown .hud__value { color: var(--trap); }
+
+.levels__progress--racing { color: var(--flag); font-weight: 700; }
+.card-level.is-beaten { border-color: var(--exit); background: var(--exit-soft); }
 .card__punchline-answer { font-size: 1.15rem; font-weight: 800; }
 
 @media (prefers-reduced-motion: reduce) {

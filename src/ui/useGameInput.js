@@ -87,6 +87,20 @@ function useGameInput(game, boardRef, actions = {}) {
 
     const onPointerDown = (e) => {
       if (pointerId !== null) return
+
+      /*
+       * The stick is the canvas, not everything layered over it.
+       *
+       * Without this the pause menu is unclickable, and in a way no jsdom test
+       * catches. A press on a menu button bubbles to the board, the board calls
+       * setPointerCapture, and the capture retargets the pointerup to the board
+       * — so the browser dispatches the click to the board rather than to the
+       * button under the finger. jsdom does not implement that retargeting, so
+       * a synthetic .click() in a test kept working the whole time the real
+       * menu did nothing.
+       */
+      if (!(e.target instanceof Element) || e.target.tagName !== 'CANVAS') return
+
       pointerId = e.pointerId
       originX = e.clientX
       originY = e.clientY

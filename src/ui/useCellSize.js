@@ -11,10 +11,12 @@ import { useState, useEffect } from 'react'
  */
 
 const MIN_CELL = 14
-const MAX_CELL = 46
+const MAX_CELL = 72
 
 function measure(cols, rows, reservedHeight) {
-  const availableWidth = Math.min(window.innerWidth - 32, 900)
+  // Boards are landscape now, so width is the dimension worth spending. The
+  // old 900px ceiling left a wide window with a stamp in the middle of it.
+  const availableWidth = Math.min(window.innerWidth - 32, 1400)
   const availableHeight = window.innerHeight - reservedHeight
 
   const size = Math.floor(Math.min(availableWidth / cols, availableHeight / rows))

@@ -19,6 +19,11 @@ import { judge } from './oracle.js'
  * mechanics, and each tier turns on at most one of them that the tier before
  * did not have.
  *
+ * Boards are landscape, not square, because the screen is: a square maze on a
+ * wide window is a postage stamp with a margin either side of it. Cell counts
+ * are held roughly constant across the change so the tiers stay as hard as they
+ * were — 14x14 became 18x11, which is 196 cells against 198.
+ *
  * `hunter` is `{ speed, margin }` or absent. `speed` is cells per simulation
  * step, clamped by `HUNTER_SPEED_CAP` so it can never out-run the ball.
  * `margin` is how much slack a perfect player gets: the hunter's timer is set
@@ -26,21 +31,21 @@ import { judge } from './oracle.js'
  * can be seventy percent slower than optimal before anything comes looking.
  */
 const TIERS = {
-  gentle: { cols: 10, rows: 10, loops: 0.06, flags: 1, traps: 0, fog: null },
-  brisk: { cols: 12, rows: 12, loops: 0.08, flags: 2, traps: 2, fog: null },
+  gentle: { cols: 13, rows: 8, loops: 0.06, flags: 1, traps: 0, fog: null },
+  brisk: { cols: 16, rows: 9, loops: 0.08, flags: 2, traps: 2, fog: null },
 
   // `misty` is `brisk` with fog and nothing else changed: same size, same flag
   // count, same trap count. The only new thing on the level where fog arrives
   // is the fog itself, so a player who suddenly finds it hard knows exactly
   // what changed. The radius is generous here and tightens in later tiers.
-  misty: { cols: 12, rows: 12, loops: 0.08, flags: 2, traps: 2, fog: 4.5 },
+  misty: { cols: 16, rows: 9, loops: 0.08, flags: 2, traps: 2, fog: 4.5 },
 
-  blind: { cols: 12, rows: 12, loops: 0.08, flags: 2, traps: 3, fog: 3.5 },
+  blind: { cols: 16, rows: 9, loops: 0.08, flags: 2, traps: 3, fog: 3.5 },
 
   // `hunted` is `blind` with a hunter and nothing else changed — the same trick
   // that introduced fog, for the same reason. Generous timer, slow hunter.
   hunted: {
-    cols: 12, rows: 12, loops: 0.08, flags: 2, traps: 3, fog: 3.5,
+    cols: 16, rows: 9, loops: 0.08, flags: 2, traps: 3, fog: 3.5,
     hunter: { speed: 0.075, margin: 1.9 },
   },
 
@@ -48,7 +53,7 @@ const TIERS = {
   // chapter is meant to be the hard one, not the unfun one, and being caught
   // already costs a respawn on the biggest, foggiest boards in the game.
   cruel: {
-    cols: 14, rows: 14, loops: 0.10, flags: 3, traps: 5, fog: 3.0,
+    cols: 18, rows: 11, loops: 0.10, flags: 3, traps: 5, fog: 3.0,
     hunter: { speed: 0.095, margin: 1.8 },
   },
 
@@ -56,7 +61,7 @@ const TIERS = {
   // trail you leave closes up behind you, so the map you have built in your
   // head stops matching the one on screen.
   fading: {
-    cols: 14, rows: 14, loops: 0.10, flags: 3, traps: 5, fog: 3.0,
+    cols: 18, rows: 11, loops: 0.10, flags: 3, traps: 5, fog: 3.0,
     memory: 7000,
     hunter: { speed: 0.095, margin: 1.8 },
   },
@@ -64,7 +69,7 @@ const TIERS = {
   // Same again, only the memory is shorter — the one variable tightening, the
   // way the fog radius tightens from chapter to chapter.
   vanishing: {
-    cols: 14, rows: 14, loops: 0.10, flags: 3, traps: 5, fog: 3.0,
+    cols: 18, rows: 11, loops: 0.10, flags: 3, traps: 5, fog: 3.0,
     memory: 2500,
     hunter: { speed: 0.095, margin: 1.8 },
   },

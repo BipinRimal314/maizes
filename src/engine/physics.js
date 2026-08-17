@@ -23,7 +23,10 @@
 
 import { DIRECTIONS, inBounds, wallsAt, TOP, RIGHT, BOTTOM, LEFT } from './grid.js'
 
-const BALL_RADIUS = 0.3        // cells
+// Cells. Strictly smaller than it was (0.3): a smaller ball fits anywhere a
+// larger one did, so every level the oracle already proved stays proved, and
+// the test suite re-judges them all against this number anyway.
+const BALL_RADIUS = 0.22       // cells
 const ACCEL = 0.036            // cells per step^2
 const FRICTION = 0.82
 const MAX_SPEED = 0.42         // cells per step
