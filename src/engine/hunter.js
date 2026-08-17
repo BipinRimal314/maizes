@@ -21,11 +21,17 @@
  *    joined by an open edge. Proximity alone is not enough — two cells either
  *    side of a wall can put the centres well inside the catch distance.
  *
- * 2. **It is strictly slower than the ball.** `HUNTER_SPEED_CAP` is checked
- *    against the ball's real terminal velocity, not its `MAX_SPEED` constant —
- *    friction means the ball never actually reaches `MAX_SPEED`, and sizing the
- *    hunter against the number it cannot reach would make it faster than the
- *    player it is chasing.
+ * 2. **It is strictly slower than the ball.** The cap is checked against the
+ *    ball's real terminal velocity, not its `MAX_SPEED` constant — friction
+ *    means the ball never actually reaches `MAX_SPEED`, and sizing the hunter
+ *    against a number it cannot reach would make it faster than the player it
+ *    is chasing.
+ *
+ *    It is also sized against the **slowest ground on that particular grid**,
+ *    not against the ball at full tilt. Deep snow costs the ball nearly a third
+ *    of its top speed; a hunter allowed two thirds of the *unslowed* ball would
+ *    be faster than a player wading through it, and being caught now costs the
+ *    whole level. The cap is per-grid for exactly that reason.
  *
  * It never gates correctness. `spawnMs` is derived per level from how long a
  * perfect player actually takes (see `generate.js`), so a player walking the
@@ -35,7 +41,7 @@
  */
 
 import { DIRECTIONS, isOpen, inBounds, key } from './grid.js'
-import { ACCEL, FRICTION } from './physics.js'
+import { ACCEL, FRICTION, slowestSurface } from './physics.js'
 
 /**
  * The ball's real top speed, in cells per step.
@@ -46,8 +52,19 @@ import { ACCEL, FRICTION } from './physics.js'
  */
 const BALL_TOP_SPEED = (ACCEL * FRICTION) / (1 - FRICTION)
 
-/** No hunter may exceed this. Two thirds of the ball leaves a real escape. */
-const HUNTER_SPEED_CAP = BALL_TOP_SPEED * 0.67
+/** Share of the ball's speed a hunter may have. A third in hand is a real escape. */
+const HUNTER_SPEED_SHARE = 0.67
+
+/** The cap on ordinary ground, with no slow surfaces anywhere. */
+const HUNTER_SPEED_CAP = BALL_TOP_SPEED * HUNTER_SPEED_SHARE
+
+/**
+ * The cap for one grid: the ball's top speed on the worst ground it contains.
+ * On a level with no snow this is just `HUNTER_SPEED_CAP`.
+ */
+function hunterSpeedCap(grid) {
+  return BALL_TOP_SPEED * slowestSurface(grid) * HUNTER_SPEED_SHARE
+}
 
 /** Centres must be this close to count as a touch, on top of the open-edge test. */
 const CATCH_DISTANCE = 0.5
@@ -65,7 +82,7 @@ function createHunter(grid) {
     active: false,
     spawnMs: grid.hunter.spawnMs,
     wakesAt: grid.hunter.spawnMs,
-    speed: Math.min(grid.hunter.speed, HUNTER_SPEED_CAP),
+    speed: Math.min(grid.hunter.speed, hunterSpeedCap(grid)),
     radius: HUNTER_RADIUS,
     field: null,        // BFS distances from the player's cell
     fieldFrom: null,    // the cell that field was computed from
@@ -236,6 +253,8 @@ function wakeProgress(hunter, now) {
 export {
   BALL_TOP_SPEED,
   HUNTER_SPEED_CAP,
+  HUNTER_SPEED_SHARE,
+  hunterSpeedCap,
   CATCH_DISTANCE,
   WAKE_WARNING_MS,
   HUNTER_RADIUS,

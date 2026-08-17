@@ -7,11 +7,12 @@
  * into fairness, and every patch had an edge it did not cover.
  */
 
-import { key } from '../engine/grid.js'
+import { key, setSurface, SAND, SNOW, DIRECTIONS, isOpen } from '../engine/grid.js'
 import { createRng } from './rng.js'
 import { buildMaze } from './maze.js'
 import { branchDepth, distancesFrom, safeReachable } from './analysis.js'
 import { judge } from './oracle.js'
+import { hunterSpeedCap } from '../engine/hunter.js'
 
 /**
  * Difficulty tiers. Only a handful of numbers vary, which is the point: there
@@ -64,11 +65,30 @@ const TIERS = {
     hunter: { speed: 0.095, margin: 1.8 },
   },
 
+  // Sand arrives: `cruel` with patches of sun-baked flat and nothing else
+  // changed. The ball crosses them half again as fast, which is a gift on a
+  // straight and a problem on the corner at the end of one.
+  dry: {
+    cols: 18, rows: 11, loops: 0.10, flags: 3, traps: 5, fog: 2.4,
+    sand: 4,
+    hunter: { speed: 0.095, margin: 1.8 },
+  },
+
+  // Snow arrives, and the sand stays: once a mechanic is in the game it does
+  // not leave. Deep snow costs the ball nearly a third of its speed, which is
+  // why the hunter's cap is computed per grid — see hunter.js.
+  white: {
+    cols: 18, rows: 11, loops: 0.10, flags: 3, traps: 5, fog: 2.4,
+    sand: 3, snow: 3,
+    hunter: { speed: 0.095, margin: 1.8 },
+  },
+
   // `fading` is `cruel` with a memory that rots, and nothing else changed. The
   // trail you leave closes up behind you, so the map you have built in your
   // head stops matching the one on screen.
   fading: {
     cols: 18, rows: 11, loops: 0.10, flags: 3, traps: 5, fog: 2.4,
+    sand: 3, snow: 3,
     memory: 7000,
     hunter: { speed: 0.095, margin: 1.8 },
   },
@@ -78,6 +98,7 @@ const TIERS = {
   // terrain, which is presentation and touches no proof.
   enchanted: {
     cols: 18, rows: 11, loops: 0.10, flags: 3, traps: 5, fog: 2.4,
+    sand: 3, snow: 3,
     memory: 4000,
     hunter: { speed: 0.095, margin: 1.8 },
   },
@@ -86,6 +107,7 @@ const TIERS = {
   // way the fog radius tightens from chapter to chapter.
   vanishing: {
     cols: 18, rows: 11, loops: 0.10, flags: 3, traps: 5, fog: 2.4,
+    sand: 3, snow: 3,
     memory: 2500,
     hunter: { speed: 0.095, margin: 1.8 },
   },
@@ -177,6 +199,77 @@ function placeTraps(grid, route, rng, count) {
   return grid.traps.length === count
 }
 
+/**
+ * Lay patches of unusual ground.
+ *
+ * Blobs, not scatter. A single fast cell in the middle of a corridor is noise —
+ * you are across it before it registers. A patch you can see coming, commit to
+ * and cross is a decision, and it reads on the board as somewhere rather than
+ * as a texture.
+ *
+ * Nothing is laid on the start, the exit, an ear of maize or a trap. The first
+ * three are places the player must be able to read at a glance and the fourth
+ * is invisible — tinting the ground over a trap would be a tell, and a trap you
+ * can see is not a trap.
+ */
+function placeSurfaces(grid, rng, { sand = 0, snow = 0 } = {}) {
+  const reserved = new Set([
+    key(grid.start.x, grid.start.y),
+    key(grid.end.x, grid.end.y),
+    ...grid.flags.map((f) => key(f.x, f.y)),
+    ...grid.traps.map((t) => key(t.x, t.y)),
+  ])
+  const taken = new Set()
+
+  const grow = (kind, size) => {
+    const seeds = []
+    for (let y = 0; y < grid.rows; y++) {
+      for (let x = 0; x < grid.cols; x++) {
+        const id = key(x, y)
+        if (reserved.has(id) || taken.has(id)) continue
+        seeds.push({ x, y })
+      }
+    }
+    if (seeds.length === 0) return false
+
+    const from = rng.pick(seeds)
+    const blob = []
+    const queue = [from]
+    const seen = new Set([key(from.x, from.y)])
+
+    // flood outward through open edges only, so a patch is one walkable place
+    // rather than a shape sprayed across walls
+    for (let head = 0; head < queue.length && blob.length < size; head++) {
+      const at = queue[head]
+      const id = key(at.x, at.y)
+      if (reserved.has(id) || taken.has(id)) continue
+      blob.push(at)
+      taken.add(id)
+
+      for (const direction of rng.shuffle([...DIRECTIONS])) {
+        if (!isOpen(grid, at.x, at.y, direction)) continue
+        const next = { x: at.x + direction.dx, y: at.y + direction.dy }
+        const nid = key(next.x, next.y)
+        if (seen.has(nid)) continue
+        seen.add(nid)
+        queue.push(next)
+      }
+    }
+
+    if (blob.length < 2) return false
+    for (const cell of blob) setSurface(grid, cell.x, cell.y, kind)
+    return true
+  }
+
+  for (let i = 0; i < sand; i++) {
+    if (!grow(SAND, 3 + rng.int(4))) return false
+  }
+  for (let i = 0; i < snow; i++) {
+    if (!grow(SNOW, 3 + rng.int(4))) return false
+  }
+  return true
+}
+
 /** Build one candidate level from a seed, or null if the seed is a dud. */
 function buildCandidate(seed, tier) {
   const rng = createRng(seed)
@@ -189,6 +282,7 @@ function buildCandidate(seed, tier) {
 
   if (!placeFlags(grid, route, rng, tier.flags)) return null
   if (!placeTraps(grid, route, rng, tier.traps)) return null
+  if (!placeSurfaces(grid, rng, tier)) return null
 
   return grid
 }
@@ -215,7 +309,16 @@ function fitHunter(grid, tier, difficulty) {
 
   return {
     spawnMs: Math.round(leg * tier.hunter.margin),
-    speed: tier.hunter.speed,
+    /*
+     * Clamped here, so the shipped level records the speed that actually runs.
+     * `createHunter` clamps too, but writing the tier's wish into the artifact
+     * and quietly running something slower makes the data a lie — and it is the
+     * data the tests re-judge the campaign against.
+     *
+     * On a grid with snow the cap is well under what the tier asks for, because
+     * the hunter is sized against the ball on the worst ground it will meet.
+     */
+    speed: Math.min(tier.hunter.speed, hunterSpeedCap(grid)),
   }
 }
 
@@ -269,6 +372,25 @@ function generateLevel(tierName, seed, { attempts = 400 } = {}) {
   return { grid: null, rejected, attempts }
 }
 
+/** Sparse form: only the cells that are not ordinary ground. */
+function surfaceCells(grid) {
+  const out = []
+  if (!grid.surface) return out
+  for (let y = 0; y < grid.rows; y++) {
+    for (let x = 0; x < grid.cols; x++) {
+      const kind = grid.surface[y * grid.cols + x]
+      if (kind !== 0) out.push([x, y, kind])
+    }
+  }
+  return out
+}
+
+function surfaceFrom(data) {
+  const surface = new Uint8Array(data.c * data.r)
+  for (const [x, y, kind] of data.sf ?? []) surface[y * data.c + x] = kind
+  return surface
+}
+
 /** Serialise to the compact shipped form. */
 function toJSON(level, name) {
   const { grid } = level
@@ -285,6 +407,7 @@ function toJSON(level, name) {
     t: grid.traps.map((t) => [t.x, t.y]),
     fog: grid.fog,
     m: grid.memory,
+    sf: surfaceCells(grid),
     h: grid.hunter ? [grid.hunter.spawnMs, grid.hunter.speed] : null,
     difficulty: level.difficulty,
   }
@@ -302,8 +425,12 @@ function fromJSON(data) {
     fog: data.fog ?? null,
     memory: data.m ?? null,
     terrain: data.terrain ?? null,
+    surface: surfaceFrom(data),
     hunter: data.h ? { spawnMs: data.h[0], speed: data.h[1] } : null,
   }
 }
 
-export { TIERS, generateLevel, buildCandidate, fitHunter, toJSON, fromJSON, placeFlags, placeTraps }
+export {
+  TIERS, generateLevel, buildCandidate, fitHunter, toJSON, fromJSON,
+  placeFlags, placeTraps, placeSurfaces,
+}

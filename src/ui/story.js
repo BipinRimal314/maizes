@@ -35,6 +35,8 @@
  *   The Fog       her name.
  *   Company       the hat, and the yellow shape you have been steering.
  *   No Mercy      the camp, the cart, and she has stopped dropping them.
+ *   Dry Reach     they discuss him like weather.
+ *   White Mile    her shawl, which he has been carrying the whole way.
  *   Forgetting    how long he has been out here.
  *   The Lit Wood  the one place he would never have gone. her trail goes in.
  *   -> the bargain
@@ -124,6 +126,29 @@ const CHAPTER_BEATS = {
       v('the cart goes at first light.'),
       v('…she’s stopped dropping them.'),
       n('I have started walking quietly.'),
+    ],
+  },
+
+  'The Dry Reach': {
+    id: 'ch-dry-reach',
+    lines: [
+      n('Out of the wet and onto flat hard ground that runs further than I can see.'),
+      n('It throws you along. Twice now I have been running without having decided to.'),
+      v('…he’ll be across the reach by dark…'),
+      v('…if he doesn’t go over on it first.'),
+      n('They talk about me the way you talk about weather.'),
+    ],
+  },
+
+  'The White Mile': {
+    id: 'ch-white-mile',
+    lines: [
+      n('Snow, and enough of it to wade rather than walk.'),
+      n('Every step out here costs three of the ones behind it.'),
+      v('…she wasn’t dressed for this…'),
+      n('I have her shawl inside my coat. I have had it since the field.'),
+      v('…papa i’m cold…'),
+      n('I know. I know. I am coming.'),
     ],
   },
 
@@ -221,6 +246,8 @@ const WHISPERS = {
   'Company 2': '…don’t look back…',
   'No Mercy 2': '…first light. the cart at first light…',
   'Forgetting 2': '…he’s still out there?…',
+  'The Dry Reach 2': '…faster here. careful…',
+  'The White Mile 2': '…she left the path…',
   'The Lit Wood 2': '…the lights aren’t trees…',
   'Nothing Stays 2': '…almost, papa…',
 }

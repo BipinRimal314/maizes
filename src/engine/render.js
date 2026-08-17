@@ -13,7 +13,7 @@
  * reason: ink that leans into the player's cell reads as penetration.
  */
 
-import { TOP, RIGHT, BOTTOM, LEFT, wallsAt, key } from './grid.js'
+import { TOP, RIGHT, BOTTOM, LEFT, wallsAt, key, SAND, SNOW } from './grid.js'
 import { wakeProgress } from './hunter.js'
 import maizeUrl from '../assets/maize.png'
 
@@ -59,6 +59,9 @@ const TERRAINS = {
   marsh: { bg: '#e2e6dc', grid: '#cfd6c6', wall: '#33382f', fog: '28, 34, 28' },
   ember: { bg: '#f2e4dc', grid: '#e2cfc4', wall: '#43302a', fog: '48, 28, 22' },
 
+  desert: { bg: '#faeed3', grid: '#ecdcb4', wall: '#6b4a25', fog: '58, 44, 24' },
+  snow:   { bg: '#eef3f8', grid: '#dbe5ef', wall: '#3c4655', fog: '30, 40, 54' },
+
   // The one dark terrain. Everywhere else is daylight or dusk seen through
   // fog; here the ground itself is black and the walls are the only light in
   // it. `glow` turns the walls into neon — see the bloom pass in `drawMaze`.
@@ -72,6 +75,32 @@ const TERRAINS = {
 }
 
 const terrainOf = (grid) => TERRAINS[grid?.terrain] ?? TERRAINS.field
+
+/**
+ * Ground that changes the physics, and therefore has to be visible.
+ *
+ * Everything else a terrain does is decoration. These two are not: sand throws
+ * the ball along half again as fast and snow costs it nearly a third, so a
+ * player who cannot see the edge of a patch is being asked to explain a corner
+ * they just overshot. Filled flat under the walls, no border — a patch is a
+ * place, not an object sitting on the board.
+ */
+const SURFACE_TINTS = {
+  [SAND]: 'rgba(232, 168, 56, 0.30)',
+  [SNOW]: 'rgba(150, 200, 240, 0.34)',
+}
+
+function drawSurfaces(ctx, grid, cellSize) {
+  if (!grid.surface) return
+  for (let y = 0; y < grid.rows; y++) {
+    for (let x = 0; x < grid.cols; x++) {
+      const tint = SURFACE_TINTS[grid.surface[y * grid.cols + x]]
+      if (!tint) continue
+      ctx.fillStyle = tint
+      ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize)
+    }
+  }
+}
 
 const WALL_WIDTH = 0.07
 const MARKER_INSET = 0.14
@@ -213,6 +242,8 @@ function drawMaze(ctx, game, cellSize) {
   for (let x = 0; x <= grid.cols; x++) { ctx.moveTo(x * cellSize, 0); ctx.lineTo(x * cellSize, height) }
   for (let y = 0; y <= grid.rows; y++) { ctx.moveTo(0, y * cellSize); ctx.lineTo(width, y * cellSize) }
   ctx.stroke()
+
+  drawSurfaces(ctx, grid, cellSize)
 
   // start
   marker(ctx, grid.start.x, grid.start.y, cellSize, COLORS.start)
@@ -523,7 +554,8 @@ function drawScene(ctx, game, cellSize) {
 }
 
 export {
-  COLORS, TERRAINS, terrainOf, WALL_WIDTH, MAIZE_SCALE, setupCanvas, ballDrawMetrics,
+  COLORS, TERRAINS, SURFACE_TINTS, terrainOf, drawSurfaces,
+  WALL_WIDTH, MAIZE_SCALE, setupCanvas, ballDrawMetrics,
   loadMaize, maizeReady, setMaizeImage, drawMaizeIcon,
   drawScene, drawMaze, drawBall, drawFog, drawHunter, drawWakeWarning,
 }

@@ -23,6 +23,8 @@ npm run build
   in stay remembered, dimmer than the circle you are standing in and clearly
   lighter than ground you have never touched — until the chapters where that
   stops being true.
+- Ground is not all the same. Sun-baked flat runs the ball half again as fast;
+  deep snow costs it nearly a third. Patches, not whole boards.
 - Memory, on levels that have it, is a countdown rather than a promise. A cell
   you walked through dims as it ages and is gone entirely once the span runs
   out, so the trail rots at the far end while you are still walking it.
@@ -99,6 +101,34 @@ and the choice is remembered. It is deliberately not a keyboard easter egg — a
 tester who stumbles onto a secret that reveals the whole campaign has had the
 game spoiled by accident.
 
+### Ground that changes the physics
+
+Sand and snow are the first mechanic here that is not presentation, and the
+first that can make a level *unfair* rather than merely ugly. Two things keep
+them honest.
+
+**Only acceleration is scaled, never friction.** Terminal velocity settles at
+`ACCEL × FRICTION / (1 − FRICTION)`, so scaling acceleration scales top speed by
+exactly that factor and leaves handling identical — the ball corners the way it
+always did, it just gets there sooner or later. Scaling friction instead would
+make sand slippery and snow sticky, changing how the maze is *steered* rather
+than how fast it is crossed, and would put the "never overlaps a wall" property
+back in play for the sake of a feeling.
+
+**The hunter's speed cap is computed per grid, against the slowest ground on
+it.** Deep snow costs the ball nearly a third of its top speed; a hunter allowed
+two thirds of the *unslowed* ball would be faster than a player wading through
+it. Since being caught now costs the whole level, that is not "hard", it is
+unwinnable — and it would pass every structural check, because nothing about the
+maze would be wrong. `fitHunter` clamps at generation time so the shipped level
+records the speed that actually runs, rather than the tier's wish.
+
+Patches are grown as blobs through open edges, never scattered as single cells:
+one fast cell mid-corridor is noise you are across before it registers, while a
+patch you can see coming and commit to is a decision. Nothing is laid on the
+start, the exit, an ear of maize or a trap — the first three must be readable at
+a glance, and tinting the ground over the fourth would be a tell.
+
 ### Terrain
 
 Each chapter is walked over different ground: field, track, dusk, woods, night,
@@ -127,7 +157,7 @@ beating your own time becomes impossible by construction. `progress.js` snapshot
 
 ## The campaign
 
-Thirty-three levels in nine chapters. Fog arrives at level 8, the hunter at level 16,
+Thirty-nine levels in eleven chapters. Fog arrives at level 8, the hunter at level 16,
 fading memory at level 25, and none of them ever leaves:
 
 | levels | chapter | maize | traps | fog | hunter | memory |
@@ -138,9 +168,13 @@ fading memory at level 25, and none of them ever leaves:
 | 12–15 | The Fog | 2 | 3 | 2.9 | — | ∞ |
 | 16–19 | Company | 2 | 3 | 2.9 | slow | ∞ |
 | 20–24 | No Mercy | 3 | 5 | 2.4 | faster | ∞ |
-| 25–27 | Forgetting | 3 | 5 | 2.4 | faster | 7.0s |
-| 28–30 | The Lit Wood | 3 | 5 | 2.4 | faster | 4.0s |
-| 31–33 | Nothing Stays | 3 | 5 | 2.4 | faster | 2.5s |
+| 25–27 | The Dry Reach | 3 | 5 | 2.4 | yes | ∞ |
+| 28–30 | The White Mile | 3 | 5 | 2.4 | yes | ∞ |
+| 31–33 | Forgetting | 3 | 5 | 2.4 | yes | 7.0s |
+| 34–36 | The Lit Wood | 3 | 5 | 2.4 | yes | 4.0s |
+| 37–39 | Nothing Stays | 3 | 5 | 2.4 | yes | 2.5s |
+
+Sand arrives at 25, snow at 28, and neither leaves.
 
 The fog only ever tightens, and only on a chapter that is not introducing
 something else. The chapters that bring the hunter and fading memory inherit the

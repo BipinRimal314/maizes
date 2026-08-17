@@ -1,13 +1,16 @@
 /**
  * The maze.
  *
- * A grid is walls plus five kinds of contents, and nothing else:
+ * A grid is walls plus six kinds of contents, and nothing else:
  *
  *   flags   you must capture every one to unlock the exit
  *   traps   invisible; stepping on one sends you back to the start
  *   fog     a radius, or null
  *   memory  ms a walked cell stays remembered, or null for forever
  *   hunter  `{ spawnMs, speed }`, or null; see hunter.js
+ *   surface a per-cell byte: ordinary ground, sun-baked flat, or deep snow.
+ *           Unlike everything above it, this one changes the physics — see
+ *           SURFACES in physics.js.
  *
  * That is the whole vocabulary. The previous version had nine mechanics
  * interacting with three death modes and three difficulty eras, and almost
@@ -47,6 +50,8 @@ function createGrid(cols, rows) {
     fog: null,
     memory: null,
     hunter: null,
+    // parallel to `walls`, one byte per cell: 0 ordinary, 1 sand, 2 snow
+    surface: new Uint8Array(cols * rows),
   }
 }
 
@@ -111,6 +116,21 @@ function neighbours(grid, x, y) {
 
 const key = (x, y) => `${x},${y}`
 
+const GROUND = 0
+const SAND = 1
+const SNOW = 2
+
+/** The ground under a cell. Out of bounds reads as ordinary. */
+function surfaceAt(grid, x, y) {
+  if (!grid.surface || !inBounds(grid, x, y)) return GROUND
+  return grid.surface[index(grid, x, y)]
+}
+
+function setSurface(grid, x, y, kind) {
+  if (!inBounds(grid, x, y)) return
+  grid.surface[index(grid, x, y)] = kind
+}
+
 function hasFlag(grid, x, y) {
   return grid.flags.some((f) => f.x === x && f.y === y)
 }
@@ -140,11 +160,14 @@ function cloneGrid(grid) {
     fog: grid.fog,
     memory: grid.memory,
     hunter: grid.hunter ? { ...grid.hunter } : null,
+    surface: grid.surface.slice(),
   }
 }
 
 export {
   TOP, RIGHT, BOTTOM, LEFT, ALL,
+  GROUND, SAND, SNOW,
+  surfaceAt, setSurface,
   DIRECTIONS,
   createGrid,
   cloneGrid,

@@ -82,8 +82,26 @@ const CHAPTERS = [
     count: 5,
     seed: 4000,
   },
-  // Memory goes at level 25, by the same rule that governed fog and the
-  // hunter: identical to the chapter before it in every other respect.
+  // Ground that is not flat earth. Sand first on its own, then snow alongside
+  // it — one new thing per chapter, and neither ever leaves again.
+  {
+    name: 'The Dry Reach',
+    terrain: 'desert',
+    blurb: 'Hard flat ground, and it throws you along faster than you meant to go.',
+    tier: 'dry',
+    count: 3,
+    seed: 6000,
+  },
+  {
+    name: 'The White Mile',
+    terrain: 'snow',
+    blurb: 'Drifts to wade. The sand was kinder and I did not thank it.',
+    tier: 'white',
+    count: 3,
+    seed: 6500,
+  },
+  // Memory goes by the same rule that governed fog and the hunter: identical
+  // to the chapter before it in every other respect.
   {
     name: 'Forgetting',
     terrain: 'marsh',
@@ -150,6 +168,11 @@ function build() {
         `flags=${json.f.length} traps=${json.t.length} fog=${json.fog ?? '-'} ` +
         `hunter=${json.h ? `${(json.h[0] / 1000).toFixed(0)}s` : '-'} ` +
         `mem=${json.m ? `${(json.m / 1000).toFixed(1)}s` : '∞'} ` +
+        `ground=${(() => {
+          const sand = json.sf.filter(([, , k]) => k === 1).length
+          const snow = json.sf.filter(([, , k]) => k === 2).length
+          return sand || snow ? `${sand}s/${snow}w` : '-'
+        })()} ` +
         `perfect=${d.perfectSeconds.toFixed(0)}s blindDeaths=${d.blindDeaths}` +
         (d.blindLosses ? ` caught=${d.blindLosses}` : '')
       )

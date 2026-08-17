@@ -6,7 +6,7 @@ import { judge, checkStructure } from './oracle.js'
 import { playPerfectly, playBlind } from './solvers.js'
 import { findPath, safeReachable } from './analysis.js'
 import { key } from '../engine/grid.js'
-import { HUNTER_SPEED_CAP } from '../engine/hunter.js'
+import { hunterSpeedCap } from '../engine/hunter.js'
 
 /**
  * Every shipped level, re-judged from the file that ships.
@@ -114,117 +114,90 @@ describe('generation is deterministic', () => {
 })
 
 describe('the campaign ramp', () => {
-  const FIRST_FOG_LEVEL = 8
+  /*
+   * Derived, not hardcoded.
+   *
+   * These used to assert "fog at 8, hunter at 16, memory at 25". Every time a
+   * chapter was added in the middle, three tests failed for reasons that had
+   * nothing to do with the rule they exist to protect — and the temptation each
+   * time is to bump the number, which quietly turns a test of the design into a
+   * test of the current level count.
+   *
+   * The rule is: a mechanic arrives once, on a level otherwise identical to the
+   * one before it, and never leaves. That holds at any campaign length.
+   */
+  const firstWith = (has) => levels.findIndex(has)
 
-  it('introduces fog at level 8', () => {
-    const firstFoggy = levels.findIndex((l) => l.fog !== null)
-    expect(firstFoggy + 1, 'first foggy level number').toBe(FIRST_FOG_LEVEL)
-  })
+  const MECHANICS = [
+    { name: 'fog', has: (l) => l.fog !== null, of: (l) => l.fog, tightens: 'down' },
+    { name: 'the hunter', has: (l) => Boolean(l.h), of: () => null },
+    { name: 'sand', has: (l) => (l.sf ?? []).some(([, , k]) => k === 1), of: () => null },
+    { name: 'snow', has: (l) => (l.sf ?? []).some(([, , k]) => k === 2), of: () => null },
+    { name: 'fading memory', has: (l) => Boolean(l.m), of: (l) => l.m, tightens: 'down' },
+  ]
 
-  it('keeps every level before that clear', () => {
-    for (const level of levels.slice(0, FIRST_FOG_LEVEL - 1)) {
-      expect(level.fog, `${level.name}`).toBeNull()
-    }
-  })
+  for (const mechanic of MECHANICS) {
+    describe(mechanic.name, () => {
+      const at = firstWith(mechanic.has)
 
-  it('never goes back to clear once fog arrives', () => {
-    for (const level of levels.slice(FIRST_FOG_LEVEL - 1)) {
-      expect(level.fog, `${level.name}`).toBeGreaterThan(0)
-    }
-  })
+      it('arrives exactly once', () => {
+        expect(at, `${mechanic.name} never appears`).toBeGreaterThanOrEqual(0)
+      })
 
-  it('only tightens the fog, never loosens it', () => {
-    // the ramp is the design; a chapter that eased off would read as a bug
-    const radii = levels.filter((l) => l.fog !== null).map((l) => l.fog)
-    for (let i = 1; i < radii.length; i++) {
-      expect(radii[i], `level ${i}`).toBeLessThanOrEqual(radii[i - 1])
-    }
-  })
+      it('is absent from every level before it', () => {
+        for (const level of levels.slice(0, at)) {
+          expect(mechanic.has(level), level.name).toBe(false)
+        }
+      })
 
-  it('changes only the fog on the level that introduces it', () => {
-    // one new variable at a time: the level fog arrives on is otherwise
-    // identical in shape to the one before it
-    const before = levels[FIRST_FOG_LEVEL - 2]
-    const after = levels[FIRST_FOG_LEVEL - 1]
-    expect(after.c).toBe(before.c)
-    expect(after.r).toBe(before.r)
-    expect(after.f.length).toBe(before.f.length)
-    expect(after.t.length).toBe(before.t.length)
-    expect(before.fog).toBeNull()
-    expect(after.fog).toBeGreaterThan(0)
-  })
+      it('never leaves once it has arrived', () => {
+        for (const level of levels.slice(at)) {
+          expect(mechanic.has(level), level.name).toBe(true)
+        }
+      })
 
-  const FIRST_HUNTED_LEVEL = 16
+      it('is the only thing that changes on the level it arrives', () => {
+        if (at === 0) return
+        const before = levels[at - 1]
+        const after = levels[at]
+        expect(after.c, 'board width').toBe(before.c)
+        expect(after.r, 'board height').toBe(before.r)
+        expect(after.f.length, 'maize').toBe(before.f.length)
+        expect(after.t.length, 'traps').toBe(before.t.length)
+        // whichever mechanics were already in play carry over untouched
+        for (const other of MECHANICS) {
+          if (other.name === mechanic.name) continue
+          if (!other.has(before)) continue
+          expect(other.has(after), `${other.name} vanished`).toBe(true)
+          if (other.of(before) !== null) {
+            expect(other.of(after), `${other.name} changed too`).toBe(other.of(before))
+          }
+        }
+      })
 
-  it('introduces the hunter at level 16', () => {
-    const first = levels.findIndex((l) => l.h !== null && l.h !== undefined)
-    expect(first + 1, 'first hunted level number').toBe(FIRST_HUNTED_LEVEL)
-  })
-
-  it('never goes back to unhunted once the hunter arrives', () => {
-    for (const level of levels.slice(FIRST_HUNTED_LEVEL - 1)) {
-      expect(level.h, `${level.name}`).toBeTruthy()
-    }
-  })
-
-  it('changes only the hunter on the level that introduces it', () => {
-    // the same one-new-variable rule that governs the level fog arrives on
-    const before = levels[FIRST_HUNTED_LEVEL - 2]
-    const after = levels[FIRST_HUNTED_LEVEL - 1]
-    expect(after.c).toBe(before.c)
-    expect(after.r).toBe(before.r)
-    expect(after.f.length).toBe(before.f.length)
-    expect(after.t.length).toBe(before.t.length)
-    expect(after.fog).toBe(before.fog)
-    expect(before.h ?? null).toBeNull()
-    expect(after.h).toBeTruthy()
-  })
+      it('only ever tightens', () => {
+        if (!mechanic.tightens) return
+        const values = levels.filter(mechanic.has).map(mechanic.of)
+        for (let i = 1; i < values.length; i++) {
+          expect(values[i], `level ${i}`).toBeLessThanOrEqual(values[i - 1])
+        }
+      })
+    })
+  }
 
   it('gives every hunted level a timer a perfect player beats comfortably', () => {
     for (const level of levels.filter((l) => l.h)) {
       const [spawnMs] = level.h
-      // the timer is derived from the longest trip perfect play takes, so it
-      // must always leave that trip room to finish
       expect(spawnMs, `${level.name}`).toBeGreaterThan(level.difficulty.perfectLegMs)
     }
   })
 
-  it('never ships a hunter that can out-run the ball', () => {
+  it('never ships a hunter that can out-run the ball on its own ground', () => {
+    // sized against the slowest surface on that grid, not the ball at full
+    // tilt: a hunter given two thirds of an unslowed ball would be faster than
+    // a player wading through the snow on the same board
     for (const level of levels.filter((l) => l.h)) {
-      expect(level.h[1], `${level.name}`).toBeLessThanOrEqual(HUNTER_SPEED_CAP)
-    }
-  })
-
-  const FIRST_FADING_LEVEL = 25
-
-  it('takes memory away at level 25', () => {
-    const first = levels.findIndex((l) => l.m)
-    expect(first + 1, 'first fading level number').toBe(FIRST_FADING_LEVEL)
-  })
-
-  it('keeps memory permanent everywhere before that', () => {
-    for (const level of levels.slice(0, FIRST_FADING_LEVEL - 1)) {
-      expect(level.m ?? null, `${level.name}`).toBeNull()
-    }
-  })
-
-  it('changes only the memory on the level that takes it away', () => {
-    // the same one-new-variable rule that governs fog and the hunter
-    const before = levels[FIRST_FADING_LEVEL - 2]
-    const after = levels[FIRST_FADING_LEVEL - 1]
-    expect(after.c).toBe(before.c)
-    expect(after.r).toBe(before.r)
-    expect(after.f.length).toBe(before.f.length)
-    expect(after.t.length).toBe(before.t.length)
-    expect(after.fog).toBe(before.fog)
-    expect(before.m ?? null).toBeNull()
-    expect(after.m).toBeGreaterThan(0)
-  })
-
-  it('only shortens memory once it starts fading, never lengthens it', () => {
-    const spans = levels.filter((l) => l.m).map((l) => l.m)
-    for (let i = 1; i < spans.length; i++) {
-      expect(spans[i], `level ${i}`).toBeLessThanOrEqual(spans[i - 1])
+      expect(level.h[1], `${level.name}`).toBeLessThanOrEqual(hunterSpeedCap(fromJSON(level)))
     }
   })
 

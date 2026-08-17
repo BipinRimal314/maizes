@@ -21,7 +21,7 @@
  * feel at 60Hz is unchanged.
  */
 
-import { DIRECTIONS, inBounds, wallsAt, TOP, RIGHT, BOTTOM, LEFT } from './grid.js'
+import { DIRECTIONS, inBounds, wallsAt, surfaceAt, GROUND, SAND, SNOW, TOP, RIGHT, BOTTOM, LEFT } from './grid.js'
 
 // Cells. Strictly smaller than it was (0.3): a smaller ball fits anywhere a
 // larger one did, so every level the oracle already proved stays proved, and
@@ -32,6 +32,41 @@ const FRICTION = 0.82
 const MAX_SPEED = 0.42         // cells per step
 const BOUNCE = -0.3
 const SUBSTEPS = 4
+
+/**
+ * Ground that changes how the ball moves.
+ *
+ * Only acceleration is scaled — never friction. Terminal velocity settles at
+ * `ACCEL * FRICTION / (1 - FRICTION)`, so scaling acceleration scales the top
+ * speed by exactly the same factor and leaves the handling identical: the ball
+ * takes corners the way it always did, it just gets there sooner or later.
+ * Scaling friction instead would make sand slippery and snow sticky, which
+ * changes how the maze is steered rather than how fast it is crossed, and would
+ * put the "never overlaps a wall" property at risk for the sake of a feeling.
+ *
+ * Sand is sun-baked flat and open; snow is deep and has to be waded.
+ */
+const SURFACES = {
+  [GROUND]: 1,
+  [SAND]: 1.55,
+  [SNOW]: 0.72,
+}
+
+/** The acceleration multiplier under a point, in cell coordinates. */
+function surfaceFactor(grid, x, y) {
+  return SURFACES[surfaceAt(grid, Math.floor(x), Math.floor(y))] ?? 1
+}
+
+/** The slowest ground anywhere on this grid. The hunter is sized against it. */
+function slowestSurface(grid) {
+  if (!grid.surface) return 1
+  let slowest = 1
+  for (const kind of grid.surface) {
+    const factor = SURFACES[kind] ?? 1
+    if (factor < slowest) slowest = factor
+  }
+  return slowest
+}
 
 function createBall(grid) {
   return {
@@ -114,8 +149,13 @@ function stepBall(ball, input, grid) {
     dy *= Math.SQRT1_2
   }
 
-  ball.vx = (ball.vx + dx * ACCEL) * FRICTION
-  ball.vy = (ball.vy + dy * ACCEL) * FRICTION
+  // the ground under the ball's centre, not under each substep: one lookup a
+  // step keeps this cheap for the solvers, which run it hundreds of thousands
+  // of times per level
+  const accel = ACCEL * surfaceFactor(grid, ball.x, ball.y)
+
+  ball.vx = (ball.vx + dx * accel) * FRICTION
+  ball.vy = (ball.vy + dy * accel) * FRICTION
 
   const speed = Math.hypot(ball.vx, ball.vy)
   if (speed > MAX_SPEED) {
@@ -153,6 +193,9 @@ function ballCell(ball) {
 
 export {
   BALL_RADIUS,
+  SURFACES,
+  surfaceFactor,
+  slowestSurface,
   ACCEL,
   FRICTION,
   MAX_SPEED,
