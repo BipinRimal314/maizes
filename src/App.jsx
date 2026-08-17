@@ -3,6 +3,7 @@ import { fromJSON } from './generate/generate.js'
 import Levels from './ui/Levels.jsx'
 import Play from './ui/Play.jsx'
 import Finale from './ui/Finale.jsx'
+import { record, flush } from './ui/telemetry.js'
 
 const BASE = import.meta.env?.BASE_URL || '/'
 
@@ -24,6 +25,9 @@ function App() {
     return () => { cancelled = true }
   }, [])
 
+  // send anything a previous session could not deliver
+  useEffect(() => { flush() }, [])
+
   useEffect(() => {
     document.body.classList.toggle('is-playing', current !== null)
     return () => document.body.classList.remove('is-playing')
@@ -35,6 +39,7 @@ function App() {
     setCurrent((i) => {
       if (i === null) return null
       if (i < levels.length - 1) return i + 1
+      record('campaign_finished', { levelIndex: i })
       setFinished(true)
       return null
     })

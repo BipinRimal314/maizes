@@ -1,7 +1,8 @@
 import { useRef, useState, useCallback, useEffect } from 'react'
 import { createGame, restartGame } from '../engine/game.js'
 import { recordWin } from './progress.js'
-import { playSound } from '../engine/sound.js'
+import { playSound, isMuted, toggleMuted } from '../engine/sound.js'
+import { record } from './telemetry.js'
 import { useCellSize } from './useCellSize.js'
 import { useGameInput } from './useGameInput.js'
 import { useGameLoop } from './useGameLoop.js'
@@ -23,12 +24,23 @@ function Play({ level, index, total, isLast = false, onBack, onNext }) {
   const boardRef = useRef(null)
   const [result, setResult] = useState(null)
 
+  const restartsRef = useRef(0)
+  const wonRef = useRef(false)
+
   const gameRef = useRef(null)
   if (gameRef.current === null) {
     const game = createGame(level.grid)
     game.onSound = playSound
     game.onWin = () => {
+      wonRef.current = true
       recordWin(level.name, { deaths: game.deaths, ms: game.now })
+      record('level_won', {
+        levelName: level.name,
+        levelIndex: index,
+        deaths: game.deaths,
+        ms: game.now,
+        restarts: restartsRef.current,
+      })
       setResult({ deaths: game.deaths, ms: game.now })
     }
     gameRef.current = game
@@ -38,24 +50,67 @@ function Play({ level, index, total, isLast = false, onBack, onNext }) {
   const cellSize = useCellSize(level.grid.cols, level.grid.rows)
   const hud = useGameLoop(game, canvasRef, cellSize)
 
-  const restart = useCallback(() => { if (!game.won) restartGame(game) }, [game])
-  const togglePause = useCallback(() => {
+  const [muted, setMuted] = useState(isMuted)
+
+  /*
+   * Pause is React state that writes through to `game.paused`, rather than
+   * being read back off the HUD snapshot. The snapshot is published ten times a
+   * second, so driving the menu from it opened it up to 100ms after the tap —
+   * fine for a number that ticks, wrong for a menu, which should appear on the
+   * press that asked for it.
+   */
+  const [paused, setPaused] = useState(false)
+
+  const pause = useCallback((next) => {
     if (game.won) return
-    game.paused = !game.paused
-    if (game.paused) game.input.up = game.input.down = game.input.left = game.input.right = false
+    game.paused = next
+    if (next) game.input.up = game.input.down = game.input.left = game.input.right = false
+    setPaused(next)
   }, [game])
+
+  const restart = useCallback(() => {
+    if (game.won) return
+    restartsRef.current += 1
+    restartGame(game)
+    pause(false)
+  }, [game, pause])
+
+  const togglePause = useCallback(() => { pause(!game.paused) }, [game, pause])
+
+  const onToggleSound = useCallback(() => { setMuted(toggleMuted()) }, [])
 
   useGameInput(game, boardRef, { onRestart: restart, onTogglePause: togglePause, onBack })
 
   useEffect(() => {
     const onHide = () => {
       if (game.won || !document.hidden) return
-      game.paused = true
-      game.input.up = game.input.down = game.input.left = game.input.right = false
+      pause(true)
     }
     document.addEventListener('visibilitychange', onHide)
     return () => document.removeEventListener('visibilitychange', onHide)
-  }, [game])
+  }, [game, pause])
+
+  /*
+   * Playtest telemetry: one event on arrival, one on the way out.
+   *
+   * The quit event is the one worth having. A tester who gives up on level 28
+   * tells you far more than one who finishes level 3, and they are exactly the
+   * tester who never files feedback — so it is recorded on unmount, which
+   * covers leaving by menu, by key, and by closing the tab.
+   */
+  useEffect(() => {
+    record('level_started', { levelName: level.name, levelIndex: index })
+    return () => {
+      if (wonRef.current) return
+      record('level_quit', {
+        levelName: level.name,
+        levelIndex: index,
+        deaths: game.deaths,
+        ms: game.now,
+        restarts: restartsRef.current,
+      })
+    }
+  }, [game, level.name, index])
 
   if (result) {
     const seconds = Math.floor(result.ms / 1000)
@@ -93,6 +148,13 @@ function Play({ level, index, total, isLast = false, onBack, onNext }) {
         <button className="play__back" onClick={onBack}>&larr; levels</button>
         <span className="play__title">{level.name}</span>
         <span className="play__count">{index + 1}/{total}</span>
+        <button
+          className="play__menu"
+          onClick={togglePause}
+          aria-label={paused ? 'resume' : 'pause and open the menu'}
+        >
+          {paused ? '▶' : '⏸'}
+        </button>
       </header>
 
       <div className="hud">
@@ -118,9 +180,18 @@ function Play({ level, index, total, isLast = false, onBack, onNext }) {
 
       <div className="board" ref={boardRef}>
         <canvas ref={canvasRef} className="board__canvas" />
-        {hud.paused && (
+        {paused && (
           <div className="board__overlay">
-            paused<br /><span className="board__hint">press P</span>
+            <span className="menu__title">paused</span>
+            <div className="menu">
+              <button className="btn btn--primary" onClick={togglePause}>resume</button>
+              <button className="btn" onClick={restart}>restart level</button>
+              <button className="btn" onClick={onToggleSound}>
+                sound: {muted ? 'off' : 'on'}
+              </button>
+              <button className="btn" onClick={onBack}>back to levels</button>
+            </div>
+            <span className="board__hint">P resume · R restart · Esc levels</span>
           </div>
         )}
       </div>
@@ -128,7 +199,7 @@ function Play({ level, index, total, isLast = false, onBack, onNext }) {
       <p className="play__quip">{hud.quip}</p>
 
       <div className="play__controls">
-        <span className="play__keys">wasd / arrows · R restart · P pause</span>
+        <span className="play__keys">wasd / arrows · R restart · P menu</span>
         <button className="btn btn--sm" onClick={restart}>restart</button>
       </div>
     </div>

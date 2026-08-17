@@ -153,6 +153,56 @@ six levels reflects their traps and their hunter, not their memory span. They
 are harder than that number says. That is a limitation of the estimate, not a
 gap in the correctness proof.
 
+## Playtesting
+
+A build handed to testers records what happened, so the difficulty ramp can be
+argued from their runs rather than from mine.
+
+```bash
+cp .env.example .env.local     # fill in the two Supabase values
+npm run build
+```
+
+**With no env vars set, telemetry is entirely inert** — no requests, no stored
+ids, and the notice on the level list does not render. That is the default for
+local development and for anyone who clones this.
+
+Set up:
+
+1. Create a Supabase project.
+2. Run `supabase/migrations/0001_play_events.sql` in its SQL editor.
+3. Put the project URL and the **anon** key in `.env.local`, and set
+   `VITE_BUILD` to something like `playtest-1` so data from before a retune
+   stays separable.
+
+Four events per tester: `level_started`, `level_won`, `level_quit`,
+`campaign_finished`. The quit event is the one worth having — a tester who gives
+up on level 28 tells you more than one who finishes level 3, and they are
+exactly the tester who never files feedback. It fires on unmount, so leaving by
+menu, by key and by closing the tab all count.
+
+Read the results with the two views the migration creates:
+
+```sql
+select * from level_funnel;      -- started / won / quit / avg deaths, per level
+select * from player_progress;   -- how far each tester got
+```
+
+### What it does and does not collect
+
+`player_id` is a random uuid minted in the browser. There is no name, no email,
+no free text field, and no IP column — a tester who clears storage becomes a new
+player, which is the right trade for not holding anything about them. The level
+list says all of this in plain words and offers a one-click opt-out.
+
+The anon key ships inside a public page, so it is assumed hostile: RLS grants it
+`INSERT` and nothing else, and there is deliberately no `SELECT` policy, so a
+reader of the page cannot pull back other testers' rows. Read the table with the
+service role key, which never leaves your machine. `.env.local` is gitignored.
+
+A failed send is queued in localStorage and retried on the next load; a failed
+queue write is swallowed. Telemetry may cost a row, never a frame.
+
 ## Layout
 
 ```
@@ -171,6 +221,7 @@ src/
     oracle.js      every rule a level must satisfy
     generate.js    build, judge, fit a hunter, judge again, keep or discard
   ui/              React shell: input, sizing, HUD, level list, finale
+    telemetry.js   playtest events; inert unless configured
   scripts/         build-time campaign generation
 ```
 

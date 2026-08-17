@@ -23,11 +23,12 @@ const COLORS = {
   start: '#0d656e',
   exit: '#1b8f5a',
   exitLocked: '#b3ad9c',
-  flag: '#b4552d',          // the earth an ear is standing in
+  flag: '#f6e7c8',          // a pale patch, so the outlined ear reads on top of it
   flagTaken: '#ded6c2',
-  maize: '#f2b01e',
-  maizeKernel: '#c98410',
-  maizeHusk: '#4e9c46',
+  maize: '#f5a623',
+  maizeKernel: '#1f1a14',
+  maizeHusk: '#57a93f',
+  maizeOutline: '#1f1a14',
   ball: '#fdd835',
   ballRim: '#ffffff',
   ballShine: 'rgba(255,255,255,0.5)',
@@ -85,49 +86,84 @@ function marker(ctx, x, y, cellSize, color) {
 }
 
 /**
- * An ear of maize: a husk leaf either side, a cob, and kernels.
+ * A single ear of maize: one cob tilted up and to the right, two husk leaves,
+ * a dark outline, and a crosshatch for the kernels.
  *
  * Drawn rather than set as an emoji so it scales with the cell and keeps the
  * same weight as the rest of the board — the emoji renders at a different size
  * and colour on every platform, which on a 10px cell reads as a smudge.
+ *
+ * Everything is described in a unit box and then scaled, so the whole icon is
+ * one number away from being resized and the proportions cannot drift apart.
+ * The crosshatch and the outline both drop out on small cells, where they stop
+ * being detail and start being mud.
  */
 function drawMaizeIcon(ctx, x, y, cellSize) {
-  const cx = (x + 0.5) * cellSize
-  const cy = (y + 0.5) * cellSize
-  const h = cellSize * 0.5      // cob height
-  const w = cellSize * 0.22     // cob width
+  const s = cellSize
+  const fine = s >= 20        // enough room for kernels and an outline
+  const line = Math.max(1, s * 0.035)
 
-  // husk leaves
-  ctx.fillStyle = COLORS.maizeHusk
-  for (const side of [-1, 1]) {
+  ctx.save()
+  ctx.translate((x + 0.5) * s, (y + 0.5) * s)
+
+  ctx.lineJoin = 'round'
+  ctx.lineCap = 'round'
+  ctx.strokeStyle = COLORS.maizeOutline
+  ctx.lineWidth = line
+
+  // --- husk leaves, drawn first so the cob sits on top of them
+  const leaf = (toX, toY, bendX, bendY) => {
     ctx.beginPath()
-    ctx.moveTo(cx, cy - h * 0.34)
-    ctx.quadraticCurveTo(cx + side * w * 1.5, cy - h * 0.1, cx + side * w * 0.55, cy + h * 0.5)
-    ctx.quadraticCurveTo(cx + side * w * 0.3, cy + h * 0.05, cx, cy - h * 0.34)
+    ctx.moveTo(0.02 * s, 0.30 * s)
+    ctx.quadraticCurveTo(bendX * s, bendY * s, toX * s, toY * s)
+    ctx.quadraticCurveTo((bendX + toX * 0.28) * s, (bendY + toY * 0.42) * s, 0.02 * s, 0.30 * s)
     ctx.closePath()
+    ctx.fillStyle = COLORS.maizeHusk
     ctx.fill()
+    if (fine) ctx.stroke()
   }
+  leaf(-0.30, -0.26, -0.34, 0.10)     // the tall one, sweeping up the left
+  leaf(0.34, 0.20, 0.14, 0.34)        // the low one, sweeping down the right
 
-  // cob
-  ctx.fillStyle = COLORS.maize
+  // --- cob
+  ctx.save()
+  ctx.rotate(0.42)
   ctx.beginPath()
-  ctx.ellipse(cx, cy, w, h * 0.5, 0, 0, Math.PI * 2)
+  ctx.ellipse(0, -0.04 * s, 0.145 * s, 0.30 * s, 0, 0, Math.PI * 2)
+  ctx.fillStyle = COLORS.maize
   ctx.fill()
 
-  // kernels, only when there is room for them to read as kernels
-  if (cellSize >= 22) {
-    ctx.fillStyle = COLORS.maizeKernel
-    const rows = 4
-    for (let r = 0; r < rows; r++) {
-      const ky = cy - h * 0.28 + (r * h * 0.56) / (rows - 1)
-      const inset = Math.abs(r - (rows - 1) / 2) / rows
-      for (const kx of [-1, 0, 1]) {
-        ctx.beginPath()
-        ctx.arc(cx + kx * w * 0.5 * (1 - inset), ky, Math.max(0.7, cellSize * 0.03), 0, Math.PI * 2)
-        ctx.fill()
-      }
+  if (fine) {
+    // kernels as a diamond crosshatch, clipped to the cob so the lines cannot
+    // spill past its edge the way a plain grid would
+    ctx.save()
+    ctx.clip()
+    ctx.strokeStyle = COLORS.maizeKernel
+    ctx.lineWidth = Math.max(0.8, s * 0.028)
+    ctx.beginPath()
+    for (let i = -4; i <= 4; i++) {
+      const o = i * 0.115 * s
+      ctx.moveTo(o - 0.4 * s, -0.4 * s); ctx.lineTo(o + 0.4 * s, 0.4 * s)
+      ctx.moveTo(o - 0.4 * s, 0.4 * s); ctx.lineTo(o + 0.4 * s, -0.4 * s)
     }
+    ctx.stroke()
+    ctx.restore()
+
+    ctx.strokeStyle = COLORS.maizeOutline
+    ctx.lineWidth = line
+    ctx.stroke()
   }
+  ctx.restore()
+
+  // --- stem
+  if (fine) {
+    ctx.beginPath()
+    ctx.moveTo(0.02 * s, 0.30 * s)
+    ctx.lineTo(-0.02 * s, 0.38 * s)
+    ctx.stroke()
+  }
+
+  ctx.restore()
 }
 
 function drawMaze(ctx, game, cellSize) {

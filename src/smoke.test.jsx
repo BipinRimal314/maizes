@@ -8,6 +8,7 @@ import Finale from './ui/Finale.jsx'
 import { fromJSON } from './generate/generate.js'
 import { createGame, stepGame } from './engine/game.js'
 import { drawScene } from './engine/render.js'
+import { isMuted, setMuted } from './engine/sound.js'
 import levelData from '../public/levels.json'
 
 /**
@@ -132,6 +133,61 @@ describe('a level mounts and runs', () => {
     stepGame(game)
     expect(game.hunter.active, 'hunter should have woken').toBe(true)
     expect(() => drawScene(CTX, game, 24)).not.toThrow()
+  })
+
+  it('opens a pause menu with a way off the board that needs no keyboard', async () => {
+    // the reason this exists: on a phone there is no P and no Escape, so the
+    // only exits were a keyboard shortcut and one unlabelled bit of header text
+    const view = await mount(
+      <Play level={level} index={0} total={30} onBack={() => {}} onNext={() => {}} />
+    )
+    const menuButton = view.container.querySelector('.play__menu')
+    expect(menuButton, 'no menu button in the header').not.toBeNull()
+
+    await act(async () => { menuButton.click() })
+    await act(async () => { await new Promise((r) => setTimeout(r, 15)) })
+
+    const overlay = view.container.querySelector('.board__overlay')
+    expect(overlay).not.toBeNull()
+    const labels = [...overlay.querySelectorAll('button')].map((b) => b.textContent)
+    expect(labels).toEqual(
+      expect.arrayContaining(['resume', 'restart level', 'back to levels'])
+    )
+    expect(labels.some((l) => l.startsWith('sound:'))).toBe(true)
+    expect(errors, errors.join('\n')).toHaveLength(0)
+    await view.unmount()
+  })
+
+  it('leaves the board through the menu without a keypress', async () => {
+    let left = false
+    const view = await mount(
+      <Play level={level} index={0} total={30} onBack={() => { left = true }} onNext={() => {}} />
+    )
+    await act(async () => { view.container.querySelector('.play__menu').click() })
+    const back = [...view.container.querySelectorAll('.board__overlay button')]
+      .find((b) => b.textContent === 'back to levels')
+    await act(async () => { back.click() })
+    expect(left).toBe(true)
+    await view.unmount()
+  })
+
+  it('toggles sound from the menu and remembers it', async () => {
+    setMuted(false)
+    const view = await mount(
+      <Play level={level} index={0} total={30} onBack={() => {}} onNext={() => {}} />
+    )
+    await act(async () => { view.container.querySelector('.play__menu').click() })
+
+    const soundButton = () => [...view.container.querySelectorAll('.board__overlay button')]
+      .find((b) => b.textContent.startsWith('sound:'))
+    expect(soundButton().textContent).toBe('sound: on')
+
+    await act(async () => { soundButton().click() })
+    expect(soundButton().textContent).toBe('sound: off')
+    expect(isMuted()).toBe(true)
+
+    setMuted(false)
+    await view.unmount()
   })
 
   it('tears the loop down on unmount', async () => {

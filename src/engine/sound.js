@@ -6,8 +6,12 @@
  * worth crashing a frame over.
  */
 
+const MUTE_KEY = 'maizes:muted'
+
 let audioCtx = null
-let muted = false
+let muted = (() => {
+  try { return localStorage.getItem(MUTE_KEY) === '1' } catch { return false }
+})()
 
 function context() {
   if (audioCtx) return audioCtx
@@ -59,7 +63,14 @@ function playSound(name) {
   } catch { /* blocked or missing audio must not break the loop */ }
 }
 
-const setMuted = (value) => { muted = value }
-const isMuted = () => muted
+/** Remembered across sessions — a tester who muted once should stay muted. */
+function setMuted(value) {
+  muted = !!value
+  try { localStorage.setItem(MUTE_KEY, muted ? '1' : '0') } catch { /* private mode */ }
+  return muted
+}
 
-export { playSound, setMuted, isMuted }
+const isMuted = () => muted
+const toggleMuted = () => setMuted(!muted)
+
+export { playSound, setMuted, isMuted, toggleMuted, MUTE_KEY }

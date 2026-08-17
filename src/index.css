@@ -99,6 +99,40 @@ button { font: inherit; color: inherit; cursor: pointer; }
   line-height: 1;
 }
 .levels__tag { color: var(--ink-soft); font-style: italic; margin-top: 0.6rem; }
+.levels__sound {
+  margin-top: 0.9rem;
+  background: var(--surface);
+  border: 2px solid var(--line);
+  border-radius: 999px;
+  padding: 0.35rem 0.8rem;
+  font-family: var(--display);
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+.levels__sound:hover { color: var(--ink); border-color: var(--ink-soft); }
+
+.levels__foot {
+  margin: 2.5rem auto 0;
+  max-width: 30rem;
+  text-align: center;
+  font-size: 0.7rem;
+  line-height: 1.6;
+  color: var(--ink-soft);
+  border-top: 2px dashed var(--line);
+  padding-top: 1.2rem;
+}
+.levels__optout {
+  margin-top: 0.6rem;
+  background: none;
+  border: none;
+  text-decoration: underline;
+  color: var(--ink-soft);
+  font-size: 0.7rem;
+  cursor: pointer;
+}
+.levels__optout:hover { color: var(--ink); }
 .levels__progress {
   display: inline-block;
   margin-top: 1rem;
@@ -180,10 +214,35 @@ button { font: inherit; color: inherit; cursor: pointer; }
   width: 100%;
   max-width: var(--board-width, 32rem);
 }
-.play__back { background: none; border: none; color: var(--ink-soft); font-size: 0.8rem; }
-.play__back:hover { color: var(--ink); }
+.play__back {
+  background: var(--surface);
+  border: 2px solid var(--line);
+  border-radius: 999px;
+  padding: 0.3rem 0.7rem;
+  color: var(--ink-soft);
+  font-size: 0.75rem;
+  font-family: var(--display);
+  font-weight: 700;
+  cursor: pointer;
+}
+.play__back:hover { color: var(--ink); border-color: var(--ink-soft); }
 .play__title { font-family: var(--display); font-weight: 800; flex: 1; text-align: center; }
 .play__count { color: var(--ink-soft); font-size: 0.8rem; font-variant-numeric: tabular-nums; }
+
+.play__menu {
+  background: var(--surface);
+  border: 2px solid var(--line);
+  border-radius: 999px;
+  width: 2rem;
+  height: 2rem;
+  display: grid;
+  place-items: center;
+  font-size: 0.7rem;
+  color: var(--ink-soft);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.play__menu:hover { color: var(--ink); border-color: var(--ink-soft); }
 
 .hud {
   display: grid;
@@ -260,7 +319,21 @@ button { font: inherit; color: inherit; cursor: pointer; }
   font-weight: 800;
   line-height: 1.4;
 }
-.board__hint { font-size: 0.75rem; font-weight: 500; color: var(--ink-soft); }
+.board__hint { font-size: 0.7rem; font-weight: 500; color: var(--ink-soft); margin-top: 1rem; }
+
+/* the pause menu — the only way off the board without a keyboard */
+.menu__title {
+  font-size: 1.3rem;
+  letter-spacing: 0.02em;
+  margin-bottom: 1rem;
+}
+.menu {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: min(13rem, 70%);
+}
+.menu .btn { width: 100%; justify-content: center; }
 
 .play__quip {
   font-size: 0.8rem;

@@ -1,7 +1,16 @@
+import { useState, useCallback } from 'react'
 import { isDone, bestFor, doneCount } from './progress.js'
+import { isMuted, toggleMuted } from '../engine/sound.js'
+import { enabled as telemetryOn, isRecording, toggleRecording } from './telemetry.js'
 
 /** The level list, grouped by chapter. */
 function Levels({ levels, onPick }) {
+  const [muted, setMuted] = useState(isMuted)
+  const onToggleSound = useCallback(() => { setMuted(toggleMuted()) }, [])
+
+  const [recording, setRecording] = useState(isRecording)
+  const onToggleRecording = useCallback(() => { setRecording(toggleRecording()) }, [])
+
   const chapters = []
   for (const [index, level] of levels.entries()) {
     let chapter = chapters[chapters.length - 1]
@@ -20,6 +29,13 @@ function Levels({ levels, onPick }) {
         <h1 className="levels__title">maizes</h1>
         <p className="levels__tag">why is it called maizes? that&rsquo;s the puzzle.</p>
         {done > 0 && <p className="levels__progress">{done} of {levels.length} escaped</p>}
+        <button
+          className="levels__sound"
+          onClick={onToggleSound}
+          aria-label={muted ? 'turn sound on' : 'turn sound off'}
+        >
+          {muted ? '\u{1F507} sound off' : '\u{1F50A} sound on'}
+        </button>
       </header>
 
       {chapters.map((chapter) => (
@@ -51,6 +67,21 @@ function Levels({ levels, onPick }) {
           </div>
         </section>
       ))}
+
+      {/* Only shown on a build that actually has somewhere to send it. Testers
+          are told in plain words, and opting out is one click, not a menu. */}
+      {telemetryOn() && (
+        <footer className="levels__foot">
+          <p>
+            {recording
+              ? 'this playtest build records anonymous stats — which level you reached, how long it took, how often you died. no name, no email, nothing else.'
+              : 'not recording anything. thanks for playing anyway.'}
+          </p>
+          <button className="levels__optout" onClick={onToggleRecording}>
+            {recording ? 'stop recording my stats' : 'start recording again'}
+          </button>
+        </footer>
+      )}
     </div>
   )
 }
