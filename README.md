@@ -20,7 +20,9 @@ npm run build
 - Traps are invisible. Stepping on one sends you back to the start.
 - With every ear picked, reach the exit.
 - Fog, on levels that have it, shows only what is near you. Cells you have stood
-  in stay dimly remembered — until the chapters where that stops being true.
+  in stay remembered, dimmer than the circle you are standing in and clearly
+  lighter than ground you have never touched — until the chapters where that
+  stops being true.
 - Memory, on levels that have it, is a countdown rather than a promise. A cell
   you walked through dims as it ages and is gone entirely once the span runs
   out, so the trail rots at the far end while you are still walking it.

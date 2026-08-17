@@ -110,6 +110,30 @@ describe('the fog compositor', () => {
     expect(new Set(cells.map((c) => c.style)).size).toBe(1)
   })
 
+  it('clears enough of the sheet for the trail to actually be seen', () => {
+    /*
+     * A floor, not a fixed value. This was 0.24 — three quarters of the fog
+     * left over your own path — which read as "dimly remembered" on the old
+     * warm palette and as solid black once the dark terrains arrived. The
+     * tighter fog radius made that trail the main thing you navigate by, so a
+     * regression here is not cosmetic: it takes the map away.
+     */
+    const grid = openGrid(8, 8)
+    grid.memory = null
+    const game = createGame(grid)
+    game.input.right = true
+    for (let i = 0; i < 120; i++) stepGame(game)
+
+    const { ctx, fills } = recordingContext()
+    drawFog(ctx, game, 20)
+
+    const cleared = fills
+      .filter((f) => f.w === 20 && f.h === 20)
+      .map((f) => Number(/rgba\(0,0,0,([\d.]+)\)/.exec(f.style)[1]))
+
+    expect(Math.min(...cleared)).toBeGreaterThanOrEqual(0.4)
+  })
+
   it('drops cells older than the memory span, and dims the rest by age', () => {
     const grid = openGrid(14, 14)
     grid.memory = 2000

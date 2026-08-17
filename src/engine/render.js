@@ -64,7 +64,18 @@ const terrainOf = (grid) => TERRAINS[grid?.terrain] ?? TERRAINS.field
 
 const WALL_WIDTH = 0.07
 const MARKER_INSET = 0.14
-const MEMORY_ALPHA = 0.76
+/**
+ * How much fog is left over a cell you have already walked.
+ *
+ * This was 0.76 — a trail that cleared less than a quarter of the sheet. It
+ * read as "dimly remembered" on the original warm, light fog and as nothing at
+ * all once the terrains arrived: on `night`, at rgba(22, 26, 40), three
+ * quarters of near-black over your own path is just black, and the tighter fog
+ * radius made that path the main thing you navigate by. A remembered cell has
+ * to be obviously lighter than an unwalked one, and obviously darker than the
+ * circle you are standing in.
+ */
+const MEMORY_ALPHA = 0.45
 
 /** Ink geometry for the ball. `outerEdge` must never exceed the collision radius. */
 function ballDrawMetrics(radius, cellSize) {
