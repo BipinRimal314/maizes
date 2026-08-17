@@ -222,12 +222,63 @@ describe('catching', () => {
     grid.hunter = { spawnMs: 0, speed: 0.1 }
     const game = createGame(grid)
 
-    let caught = false
-    for (let i = 0; i < 6000 && !caught; i++) {
-      stepGame(game)
-      if (game.deaths > 0) caught = true
-    }
-    expect(caught, 'a stationary player was never caught').toBe(true)
+    for (let i = 0; i < 6000 && !game.lost; i++) stepGame(game)
+    expect(game.lost, 'a stationary player was never caught').toBe(true)
+    // a catch is not a death; it is the end of the attempt
+    expect(game.deaths).toBe(0)
+  })
+
+  it('ends the attempt rather than sending you back to the start', () => {
+    const grid = openGrid(9, 9)
+    grid.hunter = { spawnMs: 0, speed: 0.1 }
+    const game = createGame(grid)
+
+    for (let i = 0; i < 6000 && !game.lost; i++) stepGame(game)
+    expect(game.lost).toBe(true)
+
+    // the simulation is over: nothing moves again until a restart
+    const frozen = { x: game.ball.x, y: game.ball.y, now: game.now }
+    game.input.right = true
+    for (let i = 0; i < 120; i++) stepGame(game)
+    expect(game.ball.x).toBe(frozen.x)
+    expect(game.ball.y).toBe(frozen.y)
+    expect(game.now).toBe(frozen.now)
+  })
+
+  it('takes the picked maize with it, unlike a trap', () => {
+    // the one thing in the game that can undo progress, and the reason the
+    // countdown is worth watching
+    const grid = openGrid(9, 9)
+    grid.flags = [{ x: 2, y: 0 }, { x: 8, y: 8 }]
+    grid.hunter = { spawnMs: 0, speed: 0.1 }
+    const game = createGame(grid)
+
+    game.input.right = true
+    for (let i = 0; i < 400 && game.captured.size === 0; i++) stepGame(game)
+    expect(game.captured.size, 'should have picked one on the way').toBe(1)
+
+    game.input.right = false
+    for (let i = 0; i < 6000 && !game.lost; i++) stepGame(game)
+    expect(game.lost).toBe(true)
+
+    restartGame(game)
+    expect(game.captured.size, 'a catch must cost the maize').toBe(0)
+    expect(game.lost).toBe(false)
+    expect(game.hunter.active).toBe(false)
+  })
+
+  it('leaves a trap death costing nothing but the walk back', () => {
+    const grid = openGrid(9, 9)
+    grid.flags = [{ x: 2, y: 0 }, { x: 8, y: 8 }]
+    grid.traps = [{ x: 5, y: 0 }]
+    const game = createGame(grid)
+
+    game.input.right = true
+    for (let i = 0; i < 800 && game.deaths === 0; i++) stepGame(game)
+
+    expect(game.deaths).toBe(1)
+    expect(game.lost, 'a trap must not end the level').toBe(false)
+    expect(game.captured.size, 'a trap must not cost maize').toBe(1)
   })
 
   it('never registers a catch while the two are separated by a wall', () => {
@@ -269,5 +320,6 @@ describe('catching', () => {
     for (let i = 0; i < 300 && !game.won; i++) stepGame(game)
     expect(game.won).toBe(true)
     expect(game.deaths).toBe(0)
+    expect(game.lost).toBe(false)
   })
 })

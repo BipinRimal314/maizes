@@ -24,6 +24,13 @@ import { judge } from './oracle.js'
  * are held roughly constant across the change so the tiers stay as hard as they
  * were — 14x14 became 18x11, which is 196 cells against 198.
  *
+ * The fog only ever tightens, and only on a chapter that is not introducing
+ * something else: 4.5 where it arrives, 2.9 from the chapter that is about fog,
+ * 2.4 once the boards get bigger. The chapters that introduce the hunter and
+ * fading memory inherit the radius of the one before them untouched, because
+ * one new variable at a time is the whole reason a player can tell what got
+ * harder.
+ *
  * `hunter` is `{ speed, margin }` or absent. `speed` is cells per simulation
  * step, clamped by `HUNTER_SPEED_CAP` so it can never out-run the ball.
  * `margin` is how much slack a perfect player gets: the hunter's timer is set
@@ -40,12 +47,12 @@ const TIERS = {
   // what changed. The radius is generous here and tightens in later tiers.
   misty: { cols: 16, rows: 9, loops: 0.08, flags: 2, traps: 2, fog: 4.5 },
 
-  blind: { cols: 16, rows: 9, loops: 0.08, flags: 2, traps: 3, fog: 3.5 },
+  blind: { cols: 16, rows: 9, loops: 0.08, flags: 2, traps: 3, fog: 2.9 },
 
   // `hunted` is `blind` with a hunter and nothing else changed — the same trick
   // that introduced fog, for the same reason. Generous timer, slow hunter.
   hunted: {
-    cols: 16, rows: 9, loops: 0.08, flags: 2, traps: 3, fog: 3.5,
+    cols: 16, rows: 9, loops: 0.08, flags: 2, traps: 3, fog: 2.9,
     hunter: { speed: 0.075, margin: 1.9 },
   },
 
@@ -53,7 +60,7 @@ const TIERS = {
   // chapter is meant to be the hard one, not the unfun one, and being caught
   // already costs a respawn on the biggest, foggiest boards in the game.
   cruel: {
-    cols: 18, rows: 11, loops: 0.10, flags: 3, traps: 5, fog: 3.0,
+    cols: 18, rows: 11, loops: 0.10, flags: 3, traps: 5, fog: 2.4,
     hunter: { speed: 0.095, margin: 1.8 },
   },
 
@@ -61,7 +68,7 @@ const TIERS = {
   // trail you leave closes up behind you, so the map you have built in your
   // head stops matching the one on screen.
   fading: {
-    cols: 18, rows: 11, loops: 0.10, flags: 3, traps: 5, fog: 3.0,
+    cols: 18, rows: 11, loops: 0.10, flags: 3, traps: 5, fog: 2.4,
     memory: 7000,
     hunter: { speed: 0.095, margin: 1.8 },
   },
@@ -69,7 +76,7 @@ const TIERS = {
   // Same again, only the memory is shorter — the one variable tightening, the
   // way the fog radius tightens from chapter to chapter.
   vanishing: {
-    cols: 18, rows: 11, loops: 0.10, flags: 3, traps: 5, fog: 3.0,
+    cols: 18, rows: 11, loops: 0.10, flags: 3, traps: 5, fog: 2.4,
     memory: 2500,
     hunter: { speed: 0.095, margin: 1.8 },
   },

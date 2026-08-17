@@ -25,12 +25,17 @@ npm run build
   you walked through dims as it ages and is gone entirely once the span runs
   out, so the trail rots at the far end while you are still walking it.
 - The hunter, on levels that have one, wakes after a while and comes for you. It
-  always knows where you are, and it is slower than you. Touching it sends you
-  back to the start. **Returning to the start puts it back to sleep.**
+  always knows where you are, and it is slower than you. **Touching it loses the
+  level.** Returning to the start puts it back to sleep.
 
-That is all of them. **Picked maize is never lost**, including on death — that
-one rule removes the whole class of "you must die to make progress, but dying
-undoes your progress".
+That is all of them. **A trap never costs you maize**, and that one rule removes
+the whole class of "you must die to make progress, but dying undoes your
+progress".
+
+The two failure modes are deliberately not the same weight. A trap costs the
+walk back and nothing else. The hunter costs the level — it is the only thing in
+the game that can take picked maize away, which is what makes the countdown
+worth watching rather than a number in the corner.
 
 The hunter's sleep rule is the same kind of load-bearing clause. A chaser that
 survives your respawn can sit on the start square and kill you the instant you
@@ -119,11 +124,16 @@ fading memory at level 25, and none of them ever leaves:
 | 1–4 | Warm Up | 1 | — | — | — | ∞ |
 | 5–7 | Two Trips | 2 | 2 | — | — | ∞ |
 | 8–11 | First Light | 2 | 2 | 4.5 | — | ∞ |
-| 12–15 | The Fog | 2 | 3 | 3.5 | — | ∞ |
-| 16–19 | Company | 2 | 3 | 3.5 | slow | ∞ |
-| 20–24 | No Mercy | 3 | 5 | 3.0 | faster | ∞ |
-| 25–27 | Forgetting | 3 | 5 | 3.0 | faster | 7.0s |
-| 28–30 | Nothing Stays | 3 | 5 | 3.0 | faster | 2.5s |
+| 12–15 | The Fog | 2 | 3 | 2.9 | — | ∞ |
+| 16–19 | Company | 2 | 3 | 2.9 | slow | ∞ |
+| 20–24 | No Mercy | 3 | 5 | 2.4 | faster | ∞ |
+| 25–27 | Forgetting | 3 | 5 | 2.4 | faster | 7.0s |
+| 28–30 | Nothing Stays | 3 | 5 | 2.4 | faster | 2.5s |
+
+The fog only ever tightens, and only on a chapter that is not introducing
+something else. The chapters that bring the hunter and fading memory inherit the
+radius of the one before them untouched — one new variable at a time is the
+whole reason a player can tell what got harder.
 
 Level 8 is identical to level 7 in every way except the fog. Level 16 is
 identical to level 15 in every way except the hunter. Level 25 is identical to
@@ -157,8 +167,9 @@ Every level must satisfy, before it ships:
 - **nothing lethal stands between the player and anything they must touch** —
   neither an ear of maize nor the exit may require dying to reach
 - no cell is walled off entirely
-- a perfect player finishes with **zero** deaths
-- a blind player finishes at all, and dies fewer than 25 times
+- a perfect player finishes with **zero** deaths and is **never caught**
+- a blind player finishes at all, dies fewer than 25 times, and is caught fewer
+  than 6 times
 
 `src/generate/levels.test.js` re-runs all of it against the shipped
 `public/levels.json`, so the guarantee is checked against the artifact rather
@@ -169,8 +180,13 @@ than against the process that made it.
 The hunter is the one mechanic that can kill you while you stand still, so it
 gets no exemption from any of the above. It is not special-cased in the oracle
 at all — it lives in the engine, and *both* simulated players therefore face it
-for free. "A perfect player finishes with zero deaths" already means "the hunter
+for free. "A perfect player finishes without losing" already means "the hunter
 never catches an optimal player", and that is checked rather than asserted.
+
+Now that a catch costs the whole attempt, the blind player restarts on one and
+keeps what it learned about the traps — a real player who lost still remembers
+where the ground gave way — and a level whose blind player is caught more than
+six times is discarded as too hunter-hard.
 
 Its timer is derived, never guessed. Levels in a hunted tier are generated and
 judged **twice**:

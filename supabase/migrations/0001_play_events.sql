@@ -37,7 +37,8 @@ create table if not exists public.play_events (
   created_at   timestamptz not null default now(),
 
   constraint play_events_event_known check (
-    event in ('level_started', 'level_won', 'level_quit', 'campaign_finished')
+    event in ('level_started', 'level_won', 'level_lost', 'level_quit',
+              'campaign_finished', 'speedrun_started', 'speedrun_finished')
   ),
   -- sanity bounds: a public insert endpoint should not accept nonsense
   constraint play_events_level_index_sane check (level_index is null or level_index between 0 and 500),

@@ -335,6 +335,29 @@ button { font: inherit; color: inherit; cursor: pointer; }
 }
 .menu .btn { width: 100%; justify-content: center; }
 
+/* caught: the one failure that costs the whole attempt */
+.board__overlay--lost { background: rgba(253, 236, 236, 0.94); }
+.board__overlay--lost .menu__title { color: var(--trap); margin-bottom: 0.6rem; }
+.lost__line {
+  font-family: var(--body);
+  font-weight: 400;
+  font-style: italic;
+  font-size: 0.85rem;
+  color: var(--ink);
+  max-width: 22rem;
+  text-align: center;
+  padding: 0 1.5rem;
+}
+.lost__cost {
+  font-family: var(--body);
+  font-weight: 400;
+  font-size: 0.72rem;
+  color: var(--ink-soft);
+  margin: 0.5rem 0 1.2rem;
+  text-align: center;
+  padding: 0 1.5rem;
+}
+
 .play__quip--whisper { color: var(--fading); letter-spacing: 0.02em; opacity: 0.85; }
 .play__quip {
   font-size: 0.8rem;

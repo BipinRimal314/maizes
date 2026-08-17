@@ -289,3 +289,35 @@ describe('developer mode', () => {
     expect(initDevMode(), 'no param should leave it alone').toBe(false)
   })
 })
+
+describe('a chapter card is an interlude, not an exit', () => {
+  /*
+   * The bug this covers: finishing a chapter enqueued its beat and cleared the
+   * current level, so dismissing the card dropped the player on the level list.
+   * "next level" quietly meant "stop playing".
+   *
+   * App resumes at `index + 1` whenever beats fire on a level that is not the
+   * last, so what has to hold is that such a level always exists and always
+   * begins the next chapter.
+   */
+  const boundaries = levels
+    .map((level, i) => ({ level, i }))
+    .filter(({ level, i }) => levels[i + 1] && levels[i + 1].chapter !== level.chapter)
+
+  it('every chapter that owes a beat has a level to go on to', () => {
+    expect(boundaries.length).toBeGreaterThan(0)
+    for (const { level, i } of boundaries) {
+      const beats = beatsAfterLevel(levels, i, { active: false, complete: false })
+      if (beats.length === 0) continue
+      expect(levels[i + 1], `nothing after ${level.name}`).toBeTruthy()
+      expect(levels[i + 1].chapter).not.toBe(level.chapter)
+    }
+  })
+
+  it('only the final level has nowhere to resume to', () => {
+    const last = levels.length - 1
+    expect(beatsAfterLevel(levels, last, { active: false, complete: false }).length)
+      .toBeGreaterThan(0)
+    expect(levels[last + 1]).toBeUndefined()
+  })
+})

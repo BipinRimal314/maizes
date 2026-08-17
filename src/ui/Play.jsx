@@ -27,6 +27,8 @@ function Play({ level, index, total, isLast = false, onBack, onNext }) {
 
   const restartsRef = useRef(0)
   const wonRef = useRef(false)
+  const [lost, setLost] = useState(false)
+  const [caughtLine, setCaughtLine] = useState('')
 
   // Read once per level rather than per render: the target must not move while
   // the player is racing it.
@@ -51,6 +53,22 @@ function Play({ level, index, total, isLast = false, onBack, onNext }) {
         restarts: restartsRef.current,
       })
       setResult({ deaths: game.deaths, ms: game.now, par: parRef.current.ms })
+    }
+    /*
+     * Caught. Set from the callback rather than read off the HUD snapshot: the
+     * snapshot lands ten times a second, and a beat this abrupt should stop the
+     * board on the frame it happened, not up to 100ms later.
+     */
+    game.onLose = () => {
+      setLost(true)
+      setCaughtLine(game.quip)
+      record('level_lost', {
+        levelName: level.name,
+        levelIndex: index,
+        deaths: game.deaths,
+        ms: game.now,
+        restarts: restartsRef.current,
+      })
     }
     gameRef.current = game
   }
@@ -100,6 +118,7 @@ function Play({ level, index, total, isLast = false, onBack, onNext }) {
     if (game.won) return
     restartsRef.current += 1
     restartGame(game)
+    setLost(false)
     pause(false)
   }, [game, pause])
 
@@ -231,7 +250,22 @@ function Play({ level, index, total, isLast = false, onBack, onNext }) {
 
       <div className="board" ref={boardRef}>
         <canvas ref={canvasRef} className="board__canvas" />
-        {paused && (
+        {lost && (
+          <div className="board__overlay board__overlay--lost">
+            <span className="menu__title">Caught.</span>
+            <p className="lost__line">{caughtLine}</p>
+            <p className="lost__cost">
+              {level.grid.flags.length > 1
+                ? 'The maize goes back where it was. Start the field again.'
+                : 'Start the field again.'}
+            </p>
+            <div className="menu">
+              <button className="btn btn--primary" onClick={restart}>again</button>
+              <button className="btn" onClick={onBack}>levels</button>
+            </div>
+          </div>
+        )}
+        {paused && !lost && (
           <div className="board__overlay">
             <span className="menu__title">paused</span>
             <div className="menu">

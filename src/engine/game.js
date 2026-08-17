@@ -10,8 +10,13 @@
  *   - Fog, where a level has it, shows only what is near you. Cells you have
  *     stood in stay dimly remembered.
  *   - The hunter, where a level has one, wakes after a while and comes for you.
- *     It is slower than you. Touching it sends you back to the start. Returning
+ *     It is slower than you. **Touching it loses the level outright.** Returning
  *     to the start puts it back to sleep.
+ *
+ * The two failure modes are deliberately not the same weight. A trap costs you
+ * the walk back and nothing else — your maize is safe, always. The hunter costs
+ * you the level. That is the only thing in the game that can take picked maize
+ * away, and it is the reason the countdown is worth watching.
  *
  * There is nothing else. No eras, no death modes, no escalation that changes
  * the rules while you play. Every bug in the last version came from those:
@@ -79,6 +84,7 @@ function createGame(grid) {
 
     now: 0,              // game-clock ms; advances only while running
     won: false,
+    lost: false,         // caught by the hunter; the attempt is over
     paused: false,
     deaths: 0,
 
@@ -101,6 +107,7 @@ function createGame(grid) {
     onDeath: null,
     onCapture: null,
     onWin: null,
+    onLose: null,
     onSound: null,
   }
 }
@@ -109,17 +116,32 @@ function emit(game, sound) {
   if (game.onSound) game.onSound(sound)
 }
 
-function die(game, at, cause = 'trap') {
+/** A trap. Costs the walk back and nothing else — picked maize is never lost. */
+function die(game, at) {
   game.deaths += 1
   resetBall(game.ball, game.grid)
   // back at the start, so the hunter loses interest and its clock restarts
   sleepHunter(game.hunter, game.now)
   game.flash = { x: at.x, y: at.y, until: game.now + RESPAWN_FLASH_MS, kind: 'trap' }
-  game.quip = cause === 'hunter'
-    ? CAUGHT_QUIPS[game.deaths % CAUGHT_QUIPS.length]
-    : DEATH_QUIPS[game.deaths % DEATH_QUIPS.length]
-  emit(game, cause === 'hunter' ? 'caught' : 'death')
-  if (game.onDeath) game.onDeath(at, cause)
+  game.quip = DEATH_QUIPS[game.deaths % DEATH_QUIPS.length]
+  emit(game, 'death')
+  if (game.onDeath) game.onDeath(at, 'trap')
+}
+
+/**
+ * Caught. The attempt is over — not a respawn, a loss.
+ *
+ * Nothing is reset here beyond stopping the simulation; `restartGame` does the
+ * clearing when the player asks for another go. Leaving the board exactly as it
+ * was at the moment of the catch means the overlay is drawn over the position
+ * that lost it, which is the only useful thing to look at afterwards.
+ */
+function lose(game, at) {
+  game.lost = true
+  game.flash = { x: at.x, y: at.y, until: game.now + RESPAWN_FLASH_MS, kind: 'trap' }
+  game.quip = CAUGHT_QUIPS[(game.deaths + 1) % CAUGHT_QUIPS.length]
+  emit(game, 'caught')
+  if (game.onLose) game.onLose(at)
 }
 
 /**
@@ -145,7 +167,7 @@ function capture(game, at) {
 
 /** One fixed step. `game.now` advances by exactly STEP_MS. */
 function stepGame(game) {
-  if (game.won || game.paused) return
+  if (game.won || game.lost || game.paused) return
 
   game.now += STEP_MS
   stepBall(game.ball, game.input, game.grid)
@@ -178,7 +200,7 @@ function stepGame(game) {
   // but it can never take one away.
   const wasAsleep = game.hunter !== null && !game.hunter.active
   if (stepHunter(game.hunter, game.grid, game.ball, game.now)) {
-    die(game, cell, 'hunter')
+    lose(game, cell)
   } else if (wasAsleep && game.hunter.active) {
     game.quip = 'Something is up and about out there. It knows where I am.'
     emit(game, 'hunter')
@@ -191,6 +213,7 @@ function restartGame(game) {
   game.now = 0
   game.hunter = createHunter(game.grid)
   game.won = false
+  game.lost = false
   game.deaths = 0
   game.captured.clear()
   game.exitOpen = game.grid.flags.length === 0
@@ -205,6 +228,7 @@ function snapshot(game) {
   return {
     now: game.now,
     won: game.won,
+    lost: game.lost,
     paused: game.paused,
     deaths: game.deaths,
     captured: game.captured.size,

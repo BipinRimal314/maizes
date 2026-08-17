@@ -33,6 +33,7 @@ function App() {
   const [levels, setLevels] = useState(null)
   const [current, setCurrent] = useState(null)
   const [queue, setQueue] = useState([])
+  const [resumeAt, setResumeAt] = useState(null)
   const [finished, setFinished] = useState(false)
   const [error, setError] = useState(null)
 
@@ -67,57 +68,67 @@ function App() {
     return () => document.body.classList.remove('is-playing')
   }, [current])
 
-  const enqueue = useCallback((beats) => {
-    const unseen = beats.filter((beat) => !hasSeen(beat.id))
-    if (unseen.length > 0) setQueue((q) => [...q, ...unseen])
-    return unseen.length > 0
-  }, [])
-
   /**
    * Leaving a level. Works out what the player has earned the right to see:
    * the chapter's beat, the end of the campaign, or the end of the speedrun.
+   *
+   * `resumeAt` is what makes a chapter card an interlude rather than an exit.
+   * Without it, finishing level 4 showed the beat and then dropped the player
+   * on the level list — the story interrupted the campaign instead of carrying
+   * it, and "next level" quietly meant "stop playing".
    */
   const next = useCallback(() => {
-    setCurrent((i) => {
-      if (i === null) return null
-      const isLastLevel = i === levels.length - 1
-      if (isLastLevel) record('campaign_finished', { levelIndex: i })
+    if (current === null) return
+    const isLastLevel = current === levels.length - 1
+    if (isLastLevel) record('campaign_finished', { levelIndex: current })
 
-      const beats = beatsAfterLevel(levels, i, {
-        active: speedrunActive(),
-        complete: speedrunComplete(levels),
-      })
+    const beats = beatsAfterLevel(levels, current, {
+      active: speedrunActive(),
+      complete: speedrunComplete(levels),
+    }).filter((beat) => !hasSeen(beat.id))
 
-      if (enqueue(beats)) return null
-      if (isLastLevel) { setFinished(true); return null }
-      return i + 1
-    })
-  }, [levels, enqueue])
+    if (beats.length > 0) {
+      setResumeAt(isLastLevel ? null : current + 1)
+      setQueue(beats)
+      setCurrent(null)
+      return
+    }
 
-  /** A beat has been read: mark it, run its side effect, show the next one. */
+    if (isLastLevel) { setFinished(true); setCurrent(null); return }
+    setCurrent(current + 1)
+  }, [current, levels])
+
+  /** A beat has been read: mark it, run its side effect, then move on. */
   const advance = useCallback(() => {
-    setQueue((q) => {
-      const [beat, ...rest] = q
-      if (!beat) return []
-      markSeen(beat.id)
+    const beat = queue[0]
+    if (!beat) return
 
-      if (beat.id === SPEEDRUN_BRIEF.id) {
-        startSpeedrun(levels)
-        record('speedrun_started', { levelIndex: levels.length - 1 })
-      }
-      if (beat.id === ENDING.id) {
-        finishSpeedrun()
-        record('speedrun_finished', { levelIndex: levels.length - 1 })
-        setFinished(true)
-      }
+    markSeen(beat.id)
+    if (beat.id === SPEEDRUN_BRIEF.id) {
+      startSpeedrun(levels)
+      record('speedrun_started', { levelIndex: levels.length - 1 })
+    }
+    if (beat.id === ENDING.id) {
+      finishSpeedrun()
+      record('speedrun_finished', { levelIndex: levels.length - 1 })
+    }
 
-      return rest
-    })
-  }, [levels])
+    const rest = queue.slice(1)
+    setQueue(rest)
+    if (rest.length > 0) return
+
+    // the queue has drained: go on to whatever it was interrupting
+    if (beat.id === ENDING.id) { setFinished(true); return }
+    if (resumeAt !== null) {
+      setCurrent(resumeAt)
+      setResumeAt(null)
+    }
+  }, [queue, levels, resumeAt])
 
   const backToLevels = useCallback(() => {
     setCurrent(null)
     setFinished(false)
+    setResumeAt(null)
   }, [])
 
   if (error) return <div className="loading"><p>could not load levels: {error}</p></div>
@@ -130,6 +141,7 @@ function App() {
         beat={beat}
         maize={beat.id === BARGAIN.id ? maizeCollected(levels) : null}
         onDone={advance}
+        actionLabel={queue.length === 1 && resumeAt !== null ? 'on you go' : undefined}
       />
     )
   }

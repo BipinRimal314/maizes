@@ -141,7 +141,7 @@ function build() {
         `hunter=${json.h ? `${(json.h[0] / 1000).toFixed(0)}s` : '-'} ` +
         `mem=${json.m ? `${(json.m / 1000).toFixed(1)}s` : '∞'} ` +
         `perfect=${d.perfectSeconds.toFixed(0)}s blindDeaths=${d.blindDeaths}` +
-        (d.blindCaught ? ` caught=${d.blindCaught}` : '')
+        (d.blindLosses ? ` caught=${d.blindLosses}` : '')
       )
     }
   }

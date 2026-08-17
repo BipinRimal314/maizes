@@ -16,7 +16,7 @@
  * wrong bug because of it.
  */
 
-import { createGame, stepGame } from '../engine/game.js'
+import { createGame, stepGame, restartGame } from '../engine/game.js'
 import { ballCell } from '../engine/physics.js'
 import { DIRECTIONS, isOpen, key } from '../engine/grid.js'
 import { findPath } from './analysis.js'
@@ -24,6 +24,14 @@ import { findPath } from './analysis.js'
 const WAYPOINT_REACHED = 0.22
 const INPUT_DEADZONE = 0.04
 const STALL_LIMIT = 300
+
+/**
+ * How many times a blind player may be caught before we call the level too
+ * hunter-hard. Being caught now costs the whole attempt, including picked
+ * maize, so this is a much heavier failure than a trap and gets a much
+ * smaller allowance than `MAX_BLIND_DEATHS`.
+ */
+const MAX_BLIND_LOSSES = 8
 
 function clearInput(game) {
   game.input.up = false
@@ -71,6 +79,8 @@ function followRoute(game, route, budget) {
     steps++
 
     if (game.won) { clearInput(game); return { ok: true, steps } }
+    // being caught ends the attempt outright, so the route is moot
+    if (game.lost) { clearInput(game); return { ok: true, steps, lost: true } }
     // both send the ball to the start, so the route no longer applies
     if (game.deaths > deathsBefore) { clearInput(game); return { ok: true, steps, died: true } }
     if (game.captured.size > capturedBefore) { clearInput(game); return { ok: true, steps, captured: true } }
@@ -103,9 +113,6 @@ function playPerfectly(grid, { budget = 250000 } = {}) {
   const traps = game.traps
   let steps = 0
   let guard = grid.flags.length + 2
-  let cause = null
-  game.onDeath = (_at, why) => { cause = why }
-
   // A "leg" is one trip out from the start: to a flag, or finally to the exit.
   // Capturing teleports you back, so legs are exactly the intervals the hunter's
   // clock measures — which is why the generator sizes `spawnMs` off the longest.
@@ -136,11 +143,11 @@ function playPerfectly(grid, { budget = 250000 } = {}) {
     if (!walked.ok) {
       return { solved: false, reason: `flag ${chosen.flag.x},${chosen.flag.y}: ${walked.reason}`, deaths: game.deaths, steps }
     }
+    if (walked.lost) {
+      return { solved: false, reason: 'the hunter caught a perfect player', deaths: game.deaths, steps }
+    }
     if (walked.died) {
-      const reason = cause === 'hunter'
-        ? 'the hunter caught a perfect player'
-        : 'died on a route it believed was trap-free'
-      return { solved: false, reason, deaths: game.deaths, steps }
+      return { solved: false, reason: 'died on a route it believed was trap-free', deaths: game.deaths, steps }
     }
     endLeg()
   }
@@ -159,11 +166,21 @@ function playPerfectly(grid, { budget = 250000 } = {}) {
   if (!walked.ok) {
     return { solved: false, reason: `exit: ${walked.reason}`, deaths: game.deaths, steps }
   }
+  if (walked.lost) {
+    return {
+      solved: false,
+      reason: 'the hunter caught a perfect player on the way to the exit',
+      deaths: game.deaths,
+      steps,
+    }
+  }
   if (walked.died) {
-    const reason = cause === 'hunter'
-      ? 'the hunter caught a perfect player on the way to the exit'
-      : 'died on a route to the exit it believed was trap-free'
-    return { solved: false, reason, deaths: game.deaths, steps }
+    return {
+      solved: false,
+      reason: 'died on a route to the exit it believed was trap-free',
+      deaths: game.deaths,
+      steps,
+    }
   }
   endLeg()
 
@@ -230,18 +247,27 @@ function playBlind(grid, { budget = 150000 } = {}) {
   const known = new Set([key(grid.start.x, grid.start.y)])
   const learned = new Set()
   let steps = 0
-  let caught = 0
+  let losses = 0
 
-  game.onDeath = (at, cause) => {
-    // Only a trap teaches you something about the floor. Learning the cell the
-    // hunter happened to catch you in would make the blind player avoid a
-    // perfectly safe corridor forever, and it would do it on the levels that
-    // are already the hardest.
-    if (cause === 'hunter') caught++
-    else learned.add(key(at.x, at.y))
-  }
+  // Only a trap teaches you something about the floor. Learning the cell the
+  // hunter happened to catch you in would make the blind player avoid a
+  // perfectly safe corridor forever, and it would do it on exactly the levels
+  // that are already hardest.
+  game.onDeath = (at) => { learned.add(key(at.x, at.y)) }
+  game.onLose = () => { losses += 1 }
 
-  while (steps < budget && !game.won) {
+  while (steps < budget && !game.won && losses <= MAX_BLIND_LOSSES) {
+    if (game.lost) {
+      /*
+       * Caught, so the attempt is over and the maize with it. A real player
+       * starts again still knowing where the ground gave way, so `learned` and
+       * `known` survive the restart — resetting those too would model someone
+       * with amnesia rather than someone who lost.
+       */
+      restartGame(game)
+      continue
+    }
+
     const from = ballCell(game.ball)
     known.add(key(from.x, from.y))
 
@@ -268,11 +294,11 @@ function playBlind(grid, { budget = 150000 } = {}) {
   return {
     solved: game.won,
     deaths: game.deaths,
-    caught,
+    losses,
     steps,
     explored: known.size,
     seconds: game.now / 1000,
   }
 }
 
-export { playPerfectly, playBlind, followRoute, nearestFrontier }
+export { playPerfectly, playBlind, followRoute, nearestFrontier, MAX_BLIND_LOSSES }

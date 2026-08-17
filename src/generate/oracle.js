@@ -21,6 +21,8 @@ const RULES = {
   MIN_SPATIAL_FRACTION: 0.25,
   //: a blind player should not need dozens of attempts
   MAX_BLIND_DEATHS: 25,
+  //: being caught costs the whole attempt, so it gets a far smaller allowance
+  MAX_BLIND_LOSSES: 6,
 }
 
 function trapKeys(grid) {
@@ -116,6 +118,13 @@ function judge(grid, { full = true } = {}) {
   if (blind.deaths > RULES.MAX_BLIND_DEATHS) {
     return { ok: false, problems: [`a blind player died ${blind.deaths} times`], difficulty: null }
   }
+  if (blind.losses > RULES.MAX_BLIND_LOSSES) {
+    return {
+      ok: false,
+      problems: [`a blind player was caught ${blind.losses} times`],
+      difficulty: null,
+    }
+  }
 
   return {
     ok: true,
@@ -127,7 +136,7 @@ function judge(grid, { full = true } = {}) {
       // hunter's clock actually measures
       perfectLegMs: perfect.longestLegMs,
       blindDeaths: blind.deaths,
-      blindCaught: blind.caught,
+      blindLosses: blind.losses,
       blindSeconds: blind.seconds,
       blindSolved: blind.solved,
       explored: blind.explored,
