@@ -10,7 +10,9 @@
     "levels": "node src/scripts/buildLevels.js",
     "lint": "eslint .",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "build:share": "VITE_NO_DEV=1 npm run build",
+    "share": "npm run build:share && vite preview --port 4173"
   },
   "dependencies": {
     "react": "^19.2.4",

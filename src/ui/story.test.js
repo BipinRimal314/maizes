@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import {
   recordWin, bestFor, hasSeen, markSeen, maizeCollected,
   startSpeedrun, speedrunActive, speedrunComplete, speedrunProgress,
@@ -319,5 +319,36 @@ describe('a chapter card is an interlude, not an exit', () => {
     expect(beatsAfterLevel(levels, last, { active: false, complete: false }).length)
       .toBeGreaterThan(0)
     expect(levels[last + 1]).toBeUndefined()
+  })
+})
+
+describe('a build handed to other people', () => {
+  // an afterEach, not a line at the end of the test: a failing assertion would
+  // otherwise leave the stub in place and take the next test down with it
+  afterEach(() => { vi.unstubAllEnvs() })
+
+  it('cannot have developer mode turned on at all', () => {
+    /*
+     * `?dev` unlocks all thirty levels and puts back the tags that name three
+     * of the story's revelations. On a shared build a tester who idly tries it
+     * should get the game, not the ending — so with VITE_NO_DEV set there is
+     * nothing to turn on, including a flag left in storage from before.
+     */
+    vi.stubEnv('VITE_NO_DEV', '1')
+
+    setDevMode(true)
+    expect(isDevMode()).toBe(false)
+
+    Object.defineProperty(window, 'location', {
+      value: { search: '?dev=1' }, configurable: true, writable: true,
+    })
+    expect(initDevMode()).toBe(false)
+    expect(isDevMode()).toBe(false)
+  })
+
+  it('still allows it on a normal build', () => {
+    setDevMode(true)
+    expect(isDevMode()).toBe(true)
+    setDevMode(false)
   })
 })
