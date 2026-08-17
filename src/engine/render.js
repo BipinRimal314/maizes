@@ -15,6 +15,7 @@
 
 import { TOP, RIGHT, BOTTOM, LEFT, wallsAt, key } from './grid.js'
 import { wakeProgress } from './hunter.js'
+import maizeUrl from '../assets/maize.png'
 
 const COLORS = {
   bg: '#fdf6e6',
@@ -25,10 +26,8 @@ const COLORS = {
   exitLocked: '#b3ad9c',
   flag: '#f6e7c8',          // a pale patch, so the outlined ear reads on top of it
   flagTaken: '#ded6c2',
-  maize: '#f5a623',
-  maizeKernel: '#1f1a14',
+  maize: '#f5a623',          // fallback cob, only while the sprite decodes
   maizeHusk: '#57a93f',
-  maizeOutline: '#1f1a14',
   ball: '#fdd835',
   ballRim: '#ffffff',
   ballShine: 'rgba(255,255,255,0.5)',
@@ -86,83 +85,71 @@ function marker(ctx, x, y, cellSize, color) {
 }
 
 /**
- * A single ear of maize: one cob tilted up and to the right, two husk leaves,
- * a dark outline, and a crosshatch for the kernels.
+ * The maize sprite.
  *
- * Drawn rather than set as an emoji so it scales with the cell and keeps the
- * same weight as the rest of the board — the emoji renders at a different size
- * and colour on every platform, which on a 10px cell reads as a smudge.
+ * Hand-drawing this was a mistake — a cob rendered from arcs and a crosshatch
+ * reads as a smear at the sizes a cell actually gets. An illustrated sprite
+ * carries the detail for free and costs one decode.
  *
- * Everything is described in a unit box and then scaled, so the whole icon is
- * one number away from being resized and the proportions cannot drift apart.
- * The crosshatch and the outline both drop out on small cells, where they stop
- * being detail and start being mud.
+ * The image is loaded once, lazily, and every draw is guarded on it being
+ * decoded: `drawImage` with an incomplete image throws in some browsers and
+ * silently paints nothing in others, and the board draws sixty times a second
+ * from the moment the level mounts.
+ */
+let maizeImage = null
+
+function loadMaize() {
+  if (maizeImage || typeof Image === 'undefined') return maizeImage
+  maizeImage = new Image()
+  maizeImage.decoding = 'async'
+  maizeImage.src = maizeUrl
+  return maizeImage
+}
+
+/** Whether the sprite can be painted this frame. */
+const maizeReady = () => Boolean(maizeImage && maizeImage.complete && maizeImage.naturalWidth > 0)
+
+/**
+ * Override the sprite. The app never calls this; it is the seam the tests use
+ * to exercise both the painted and the not-yet-decoded branch, neither of which
+ * a headless canvas would otherwise reach.
+ */
+function setMaizeImage(image) {
+  maizeImage = image
+}
+
+const MAIZE_SCALE = 0.86
+
+/**
+ * One ear of maize, filling most of its cell.
+ *
+ * Falls back to a plain cob while the sprite is still decoding, so a slow
+ * connection shows a dull ear rather than an empty square — an empty square
+ * reads as "nothing here", which is a lie about a cell you have to reach.
  */
 function drawMaizeIcon(ctx, x, y, cellSize) {
-  const s = cellSize
-  const fine = s >= 20        // enough room for kernels and an outline
-  const line = Math.max(1, s * 0.035)
+  const image = loadMaize()
+  const size = cellSize * MAIZE_SCALE
+  const px = (x + 0.5) * cellSize - size / 2
+  const py = (y + 0.5) * cellSize - size / 2
 
+  if (maizeReady()) {
+    ctx.drawImage(image, px, py, size, size)
+    return
+  }
+
+  const s = cellSize
   ctx.save()
   ctx.translate((x + 0.5) * s, (y + 0.5) * s)
-
-  ctx.lineJoin = 'round'
-  ctx.lineCap = 'round'
-  ctx.strokeStyle = COLORS.maizeOutline
-  ctx.lineWidth = line
-
-  // --- husk leaves, drawn first so the cob sits on top of them
-  const leaf = (toX, toY, bendX, bendY) => {
-    ctx.beginPath()
-    ctx.moveTo(0.02 * s, 0.30 * s)
-    ctx.quadraticCurveTo(bendX * s, bendY * s, toX * s, toY * s)
-    ctx.quadraticCurveTo((bendX + toX * 0.28) * s, (bendY + toY * 0.42) * s, 0.02 * s, 0.30 * s)
-    ctx.closePath()
-    ctx.fillStyle = COLORS.maizeHusk
-    ctx.fill()
-    if (fine) ctx.stroke()
-  }
-  leaf(-0.30, -0.26, -0.34, 0.10)     // the tall one, sweeping up the left
-  leaf(0.34, 0.20, 0.14, 0.34)        // the low one, sweeping down the right
-
-  // --- cob
-  ctx.save()
   ctx.rotate(0.42)
+  ctx.fillStyle = COLORS.maizeHusk
+  ctx.beginPath()
+  ctx.ellipse(-0.10 * s, 0.06 * s, 0.10 * s, 0.28 * s, 0, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.fillStyle = COLORS.maize
   ctx.beginPath()
   ctx.ellipse(0, -0.04 * s, 0.145 * s, 0.30 * s, 0, 0, Math.PI * 2)
-  ctx.fillStyle = COLORS.maize
   ctx.fill()
-
-  if (fine) {
-    // kernels as a diamond crosshatch, clipped to the cob so the lines cannot
-    // spill past its edge the way a plain grid would
-    ctx.save()
-    ctx.clip()
-    ctx.strokeStyle = COLORS.maizeKernel
-    ctx.lineWidth = Math.max(0.8, s * 0.028)
-    ctx.beginPath()
-    for (let i = -4; i <= 4; i++) {
-      const o = i * 0.115 * s
-      ctx.moveTo(o - 0.4 * s, -0.4 * s); ctx.lineTo(o + 0.4 * s, 0.4 * s)
-      ctx.moveTo(o - 0.4 * s, 0.4 * s); ctx.lineTo(o + 0.4 * s, -0.4 * s)
-    }
-    ctx.stroke()
-    ctx.restore()
-
-    ctx.strokeStyle = COLORS.maizeOutline
-    ctx.lineWidth = line
-    ctx.stroke()
-  }
-  ctx.restore()
-
-  // --- stem
-  if (fine) {
-    ctx.beginPath()
-    ctx.moveTo(0.02 * s, 0.30 * s)
-    ctx.lineTo(-0.02 * s, 0.38 * s)
-    ctx.stroke()
-  }
-
   ctx.restore()
 }
 
@@ -203,11 +190,12 @@ function drawMaze(ctx, game, cellSize) {
   ctx.fillText(game.exitOpen ? '\u{2691}' : '\u{1F512}',
     (grid.end.x + 0.5) * cellSize, (grid.end.y + 0.55) * cellSize)
 
-  // flags
+  // maize. A picked one keeps its tile and a tick, so the cell still reads as
+  // somewhere you had to go; an unpicked one is the sprite alone, because a
+  // tile behind an illustration that already fills the cell is only clutter.
   for (const flag of grid.flags) {
-    const taken = game.captured.has(key(flag.x, flag.y))
-    marker(ctx, flag.x, flag.y, cellSize, taken ? COLORS.flagTaken : COLORS.flag)
-    if (taken) {
+    if (game.captured.has(key(flag.x, flag.y))) {
+      marker(ctx, flag.x, flag.y, cellSize, COLORS.flagTaken)
       ctx.fillStyle = '#b0a892'
       ctx.font = `600 ${cellSize * 0.4}px 'Plus Jakarta Sans', sans-serif`
       ctx.textAlign = 'center'
@@ -463,6 +451,7 @@ function drawScene(ctx, game, cellSize) {
 }
 
 export {
-  COLORS, WALL_WIDTH, setupCanvas, ballDrawMetrics,
+  COLORS, WALL_WIDTH, MAIZE_SCALE, setupCanvas, ballDrawMetrics,
+  loadMaize, maizeReady, setMaizeImage, drawMaizeIcon,
   drawScene, drawMaze, drawBall, drawFog, drawHunter, drawWakeWarning,
 }

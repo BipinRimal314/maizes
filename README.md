@@ -214,6 +214,8 @@ src/
     loop.js        fixed-timestep loop — simulation speed is not refresh rate
     game.js        the rules, and nothing else
     render.js      the only module that thinks in pixels
+  assets/
+    maize.png      the ear sprite; see Credits
   generate/
     maze.js        seeded carve + loop injection
     analysis.js    graph facts: routes, safe reachability, branch depth
@@ -257,3 +259,12 @@ while the two sides of every shared edge agree.
 `ballDrawMetrics` in `render.js` exists so a test can assert that the ball's ink
 stays inside its collision radius. Ink drawn past that radius reads as clipping
 even when collision is exact.
+
+## Credits
+
+The maize sprite (`src/assets/maize.png`) is an RPG icon from
+[freegameassets.com](https://www.freegameassets.com/fantasy-rpg-icons?q=corn).
+Check their current licence terms before shipping this anywhere public — the
+rest of this repo is mine to give away, that file is not.
+
+Everything else on the board is drawn in `render.js`.

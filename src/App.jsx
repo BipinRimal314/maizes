@@ -4,6 +4,7 @@ import Levels from './ui/Levels.jsx'
 import Play from './ui/Play.jsx'
 import Finale from './ui/Finale.jsx'
 import { record, flush } from './ui/telemetry.js'
+import { loadMaize } from './engine/render.js'
 
 const BASE = import.meta.env?.BASE_URL || '/'
 
@@ -27,6 +28,10 @@ function App() {
 
   // send anything a previous session could not deliver
   useEffect(() => { flush() }, [])
+
+  // start decoding the maize sprite while the player is still reading the level
+  // list, so the first board it appears on is not the one that waits for it
+  useEffect(() => { loadMaize() }, [])
 
   useEffect(() => {
     document.body.classList.toggle('is-playing', current !== null)
