@@ -605,3 +605,19 @@ button { font: inherit; color: inherit; cursor: pointer; }
   color: var(--flag);
 }
 .trail__unit { font-size: 0.76rem; color: var(--ink-soft); }
+
+/* volume, in the pause menu beside the mute toggle */
+.menu__slider {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  font-family: var(--display);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-soft);
+}
+.menu__slider input { flex: 1; accent-color: var(--flag); cursor: pointer; }
+.menu__slider input:disabled { opacity: 0.35; cursor: default; }

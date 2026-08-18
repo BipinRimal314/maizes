@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import {
   recordWin, bestFor, hasSeen, markSeen, maizeCollected,
   startSpeedrun, speedrunActive, speedrunComplete, speedrunProgress,
-  parFor, isBeaten, finishSpeedrun, speedrunFinished, resetCache,
+  parFor, isBeaten, finishSpeedrun, speedrunFinished, resetCache, hydrate,
   unlockedCount, isUnlocked, speedrunGaveUp, concedeSpeedrun,
 } from './progress.js'
 import { isDevMode, setDevMode, initDevMode } from './devmode.js'
@@ -72,11 +72,12 @@ describe('story beats', () => {
     expect(firstLevel).toBeGreaterThan(10)
   })
 
-  it('is shown once and then remembered', () => {
+  it('is shown once and then remembered', async () => {
     expect(hasSeen(PROLOGUE.id)).toBe(false)
     markSeen(PROLOGUE.id)
     expect(hasSeen(PROLOGUE.id)).toBe(true)
     resetCache()
+    await hydrate()
     expect(hasSeen(PROLOGUE.id), 'did not survive a reload').toBe(true)
   })
 })
@@ -198,12 +199,13 @@ describe('the speedrun', () => {
     expect(parFor(levels[1].name)).toBeNull()
   })
 
-  it('survives a reload mid-run', () => {
+  it('survives a reload mid-run', async () => {
     finishCampaign(20000)
     startSpeedrun(levels)
     recordWin(levels[0].name, { deaths: 0, ms: 8000 })
 
     resetCache()
+    await hydrate()
     expect(speedrunActive()).toBe(true)
     expect(parFor(levels[0].name)).toBe(20000)
     expect(isBeaten(levels[0].name)).toBe(true)
@@ -219,11 +221,12 @@ describe('the speedrun', () => {
 })
 
 describe('an older save', () => {
-  it('loads without the story or speedrun keys', () => {
+  it('loads without the story or speedrun keys', async () => {
     window.localStorage.setItem('maizes:v1', JSON.stringify({
       done: { 'Warm Up 1': { deaths: 2, ms: 11000 } },
     }))
     resetCache()
+    await hydrate()
 
     expect(bestFor('Warm Up 1')).toEqual({ deaths: 2, ms: 11000 })
     expect(speedrunActive()).toBe(false)
@@ -374,11 +377,12 @@ describe('the other ending', () => {
     expect(speedrunGaveUp()).toBe(true)
   })
 
-  it('survives a reload', () => {
+  it('survives a reload', async () => {
     finishCampaign()
     startSpeedrun(levels)
     concedeSpeedrun()
     resetCache()
+    await hydrate()
     expect(speedrunGaveUp()).toBe(true)
   })
 

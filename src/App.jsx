@@ -11,7 +11,7 @@ import {
   PROLOGUE, BARGAIN, SPEEDRUN_BRIEF, ENDING, LOST_HER, beatsAfterLevel,
 } from './ui/story.js'
 import {
-  hasSeen, markSeen, startSpeedrun,
+  hasSeen, markSeen, startSpeedrun, hydrate, flushProgress,
   speedrunActive, speedrunComplete, finishSpeedrun, concedeSpeedrun,
 } from './ui/progress.js'
 
@@ -30,6 +30,7 @@ const BASE = import.meta.env?.BASE_URL || '/'
  * one go — and they play out in order before the level list comes back.
  */
 function App() {
+  const [ready, setReady] = useState(false)
   const [levels, setLevels] = useState(null)
   const [current, setCurrent] = useState(null)
   const [queue, setQueue] = useState([])
@@ -37,7 +38,29 @@ function App() {
   const [finished, setFinished] = useState(false)
   const [error, setError] = useState(null)
 
+  /*
+   * The save is read before anything renders.
+   *
+   * On the desktop it is a file, and a file read is asynchronous — while every
+   * screen below reads progress synchronously. Gating the first render on it is
+   * what keeps a player from seeing an empty level list for a frame and then
+   * watching their campaign appear.
+   */
   useEffect(() => {
+    let cancelled = false
+    hydrate().then(() => { if (!cancelled) setReady(true) })
+    return () => { cancelled = true }
+  }, [])
+
+  // and written on the way out, in case anything is still queued
+  useEffect(() => {
+    const leaving = () => { flushProgress() }
+    window.addEventListener('beforeunload', leaving)
+    return () => window.removeEventListener('beforeunload', leaving)
+  }, [])
+
+  useEffect(() => {
+    if (!ready) return undefined
     let cancelled = false
     fetch(`${BASE}levels.json`)
       .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json() })
@@ -51,7 +74,7 @@ function App() {
       })
       .catch((e) => { if (!cancelled) setError(e.message) })
     return () => { cancelled = true }
-  }, [])
+  }, [ready])
 
   // send anything a previous session could not deliver
   useEffect(() => { flush() }, [])

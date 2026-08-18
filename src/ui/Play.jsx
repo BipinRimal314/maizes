@@ -2,13 +2,14 @@ import { useRef, useState, useCallback, useEffect } from 'react'
 import { createGame, restartGame } from '../engine/game.js'
 import { recordWin, parFor, speedrunActive } from './progress.js'
 import {
-  playSound, isMuted, toggleMuted, playStep,
+  playSound, isMuted, toggleMuted, playStep, getVolume, setVolume,
   startAmbience, stopAmbience, setHunterProximity,
 } from '../engine/sound.js'
 import { record } from './telemetry.js'
 import { whisperFor } from './story.js'
 import { useCellSize } from './useCellSize.js'
 import { useGameInput } from './useGameInput.js'
+import { useGamepad } from './useGamepad.js'
 import { useGameLoop } from './useGameLoop.js'
 
 /* eslint-disable react-hooks/refs --
@@ -130,7 +131,17 @@ function Play({ level, index, total, isLast = false, onBack, onNext }) {
 
   const onToggleSound = useCallback(() => { setMuted(toggleMuted()) }, [])
 
+  const [volume, setVol] = useState(getVolume)
+  const onVolume = useCallback((e) => {
+    const next = setVolume(e.target.value)
+    setVol(next)
+    // the bed is built with the volume baked into its gains, so it has to be
+    // rebuilt to hear the change rather than only new one-shots picking it up
+    startAmbience(level.terrain)
+  }, [level.terrain])
+
   useGameInput(game, boardRef, { onRestart: restart, onTogglePause: togglePause, onBack })
+  useGamepad(game, { onRestart: restart, onTogglePause: togglePause, onBack })
 
   /*
    * The air of this terrain, and the ghost's layer under it.
@@ -301,6 +312,15 @@ function Play({ level, index, total, isLast = false, onBack, onNext }) {
               <button className="btn" onClick={onToggleSound}>
                 sound: {muted ? 'off' : 'on'}
               </button>
+              <label className="menu__slider">
+                <span>volume</span>
+                <input
+                  type="range" min="0" max="1" step="0.05"
+                  value={volume} onChange={onVolume}
+                  disabled={muted}
+                  aria-label="volume"
+                />
+              </label>
               <button className="btn" onClick={onBack}>back to levels</button>
             </div>
             <span className="board__hint">P resume · R restart · Esc levels</span>
@@ -313,7 +333,7 @@ function Play({ level, index, total, isLast = false, onBack, onNext }) {
       </p>
 
       <div className="play__controls">
-        <span className="play__keys">wasd / arrows · R restart · P menu</span>
+        <span className="play__keys">wasd / arrows / stick · R restart · P menu</span>
         <button className="btn btn--sm" onClick={restart}>restart</button>
       </div>
     </div>

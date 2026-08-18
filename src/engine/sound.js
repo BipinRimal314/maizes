@@ -25,8 +25,15 @@
  */
 
 const MUTE_KEY = 'maizes:muted'
+const VOLUME_KEY = 'maizes:volume'
 
 let audioCtx = null
+let volume = (() => {
+  try {
+    const stored = Number(localStorage.getItem(VOLUME_KEY))
+    return Number.isFinite(stored) && stored >= 0 && stored <= 1 ? stored : 0.7
+  } catch { return 0.7 }
+})()
 let muted = (() => {
   try { return localStorage.getItem(MUTE_KEY) === '1' } catch { return false }
 })()
@@ -62,7 +69,7 @@ function tone(ctx, { type = 'sine', from, to, gain, duration, delay = 0 }) {
   osc.type = type
   osc.frequency.setValueAtTime(from, start)
   if (to !== undefined && to !== from) osc.frequency.exponentialRampToValueAtTime(to, start + duration)
-  amp.gain.setValueAtTime(gain, start)
+  amp.gain.setValueAtTime(gain * volume, start)
   amp.gain.exponentialRampToValueAtTime(0.001, start + duration)
   osc.connect(amp).connect(ctx.destination)
   osc.start(start)
@@ -107,6 +114,22 @@ function setMuted(value) {
 const isMuted = () => muted
 const toggleMuted = () => setMuted(!muted)
 
+/**
+ * Master volume, 0 to 1, remembered.
+ *
+ * Applied at the point every sound is made rather than through a master gain
+ * node, because the one-shots each build their own tiny graph and connect
+ * straight to the destination — routing them all through a shared node would
+ * mean keeping that node alive across levels, which is the thing the ambience
+ * teardown exists to avoid.
+ */
+function setVolume(value) {
+  volume = Math.max(0, Math.min(1, Number(value) || 0))
+  try { localStorage.setItem(VOLUME_KEY, String(volume)) } catch { /* private mode */ }
+  return volume
+}
+const getVolume = () => volume
+
 // ---------------------------------------------------------------- footfalls
 
 /**
@@ -145,7 +168,7 @@ function playStep(surface = 0) {
 
     const amp = ctx.createGain()
     const now = ctx.currentTime
-    amp.gain.setValueAtTime(shape.gain, now)
+    amp.gain.setValueAtTime(shape.gain * volume, now)
     amp.gain.exponentialRampToValueAtTime(0.0005, now + shape.duration)
 
     source.connect(filter).connect(amp).connect(ctx.destination)
@@ -198,7 +221,7 @@ function startAmbience(terrain) {
     windFilter.frequency.value = air.wind
     const windGain = ctx.createGain()
     windGain.gain.setValueAtTime(0, now)
-    windGain.gain.linearRampToValueAtTime(air.windGain, now + 1.5)   // fade in
+    windGain.gain.linearRampToValueAtTime(air.windGain * volume, now + 1.5)   // fade in
     wind.connect(windFilter).connect(windGain).connect(ctx.destination)
     wind.start(now)
 
@@ -207,7 +230,7 @@ function startAmbience(terrain) {
     drone.frequency.value = air.drone
     const droneGain = ctx.createGain()
     droneGain.gain.setValueAtTime(0, now)
-    droneGain.gain.linearRampToValueAtTime(air.droneGain, now + 1.5)
+    droneGain.gain.linearRampToValueAtTime(air.droneGain * volume, now + 1.5)
     drone.connect(droneGain).connect(ctx.destination)
     drone.start(now)
 
@@ -253,7 +276,7 @@ function setHunterProximity(nearness) {
   if (!bed) return
   try {
     const { ctx, dreadGain } = bed
-    const target = Math.max(0, Math.min(1, nearness)) ** 1.6 * 0.09
+    const target = Math.max(0, Math.min(1, nearness)) ** 1.6 * 0.09 * volume
     const now = ctx.currentTime
     dreadGain.gain.cancelScheduledValues(now)
     dreadGain.gain.setTargetAtTime(target, now, 0.12)
@@ -262,6 +285,7 @@ function setHunterProximity(nearness) {
 
 export {
   playSound, setMuted, isMuted, toggleMuted, MUTE_KEY,
+  setVolume, getVolume, VOLUME_KEY,
   playStep, startAmbience, stopAmbience, setHunterProximity,
   FOOTFALLS, AMBIENCE,
 }

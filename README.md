@@ -424,6 +424,63 @@ six levels reflects their traps and their hunter, not their memory span. They
 are harder than that number says. That is a limitation of the estimate, not a
 gap in the correctness proof.
 
+## Running it as a program
+
+```bash
+npm run desktop         # dev, with hot reload
+npm run desktop:build   # a bundle for whatever OS you are on
+```
+
+Wrapped in **Tauri**, not Electron. The macOS bundle is **4.3 MB** against the
+hundred-odd Electron would cost, because Tauri uses the webview the operating
+system already has instead of shipping a browser. The game is a static bundle
+and a canvas; it does not need its own Chromium.
+
+That trade has a real cost worth stating: the three platforms run three
+different webviews — WKWebView, WebView2 and WebKitGTK — so rendering and audio
+are not guaranteed identical the way a bundled Chromium would guarantee them.
+Every API this game uses is long-settled (canvas 2D, Web Audio, pointer events,
+`requestAnimationFrame`), and `OffscreenCanvas` already falls back, so the
+exposure is small — but it is not zero, and it is the reason the CI matrix runs
+the full test suite on all three rather than building blindly.
+
+**Tauri cannot cross-compile.** Each bundle must be produced on the OS it
+targets, so `.github/workflows/desktop.yml` is a matrix of real runners
+producing `.dmg`, `.msi`/`.exe`, `.deb`/`.rpm`/`.AppImage`. It builds on a `v*`
+tag or on demand, and sets `VITE_NO_DEV=1` so a shipped build can never have
+developer mode switched on.
+
+### The save became a file
+
+localStorage in a packaged app is still tied to a webview origin, and can be
+cleared by the webview, an update, or the OS tidying up. Losing a finished
+campaign to a housekeeping job is not something to shrug at, so on the desktop
+the save is a real file in the app-data directory.
+
+The awkward part is that the game reads progress *synchronously*, several times
+a render, and a file read is asynchronous. So the file is read once at boot —
+the first render is gated on it — and every write is a debounced flush of the
+whole snapshot. Finishing a level writes three times in a row (the win, the best
+time, the beat marked seen), and three file writes for one event is three
+chances to be interrupted mid-write.
+
+`persist.js` falls back to localStorage in a browser, and every failure path
+returns empty rather than throwing. A save that throws on load is a game that
+will not start, which is a far worse bug than a lost campaign — there are tests
+for corrupt JSON, storage that throws, and storage that is missing entirely.
+
+### Controller and volume
+
+A gamepad drives the same `game.input` the keyboard and the touch stick write
+into, so nothing downstream knows which one moved the hat. Polled on the
+animation frame the loop is already running rather than on a timer of its own,
+and it releases the inputs if the pad is unplugged mid-press — otherwise the hat
+keeps walking into a wall forever. `readPad` is a pure function so the deadzone
+and the d-pad can be tested without a controller.
+
+Master volume sits in the pause menu beside the mute toggle, remembered across
+sessions.
+
 ## Playtesting
 
 A build handed to testers records what happened, so the difficulty ramp can be

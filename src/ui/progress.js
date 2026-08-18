@@ -15,6 +15,8 @@
  * always equalled your best.
  */
 
+import { loadSave, saveSnapshot, flushNow } from './persist.js'
+
 const STORAGE_KEY = 'maizes:v1'
 
 const EMPTY = () => ({
@@ -25,26 +27,45 @@ const EMPTY = () => ({
 
 let cache = null
 
+/** Fold a loaded snapshot into the shape the current build expects. */
+function adopt(parsed) {
+  if (!parsed || typeof parsed.done !== 'object') return EMPTY()
+  // merge rather than replace, so a save written by an older build without the
+  // story or speedrun keys still loads
+  return {
+    ...EMPTY(),
+    ...parsed,
+    story: parsed.story ?? {},
+    speedrun: { ...EMPTY().speedrun, ...(parsed.speedrun ?? {}) },
+  }
+}
+
+/**
+ * Read the save into memory. Called once, before anything renders.
+ *
+ * On the desktop the save is a file and a file read is asynchronous, but the
+ * game reads progress synchronously several times a render. Loading once up
+ * front is what lets everything below stay synchronous.
+ */
+async function hydrate() {
+  cache = adopt(await loadSave(STORAGE_KEY))
+  return cache
+}
+
 function read() {
   if (cache) return cache
+  // nothing hydrated yet: start empty rather than block, and let the boot
+  // sequence replace this. Reading before hydrate is a bug, not a state.
   cache = EMPTY()
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    const parsed = raw ? JSON.parse(raw) : null
-    if (parsed && typeof parsed.done === 'object') {
-      // merge rather than replace, so a save written by an older build without
-      // the story or speedrun keys still loads
-      cache = { ...EMPTY(), ...parsed }
-      cache.story = parsed.story ?? {}
-      cache.speedrun = { ...EMPTY().speedrun, ...(parsed.speedrun ?? {}) }
-    }
-  } catch { /* unavailable storage is not an error worth surfacing */ }
   return cache
 }
 
 function write() {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(cache)) } catch { /* quota or privacy mode */ }
+  saveSnapshot(STORAGE_KEY, cache)
 }
+
+/** Write anything outstanding immediately — for a window that is closing. */
+const flushProgress = () => flushNow(STORAGE_KEY)
 
 function recordWin(name, { deaths, ms }) {
   const store = read()
@@ -174,6 +195,7 @@ function resetCache() {
 }
 
 export {
+  hydrate, flushProgress,
   recordWin, isDone, bestFor, doneCount, totals, maizeCollected,
   unlockedCount, isUnlocked,
   hasSeen, markSeen,
