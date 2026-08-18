@@ -26,6 +26,13 @@
  * the daughter and the trail leaves the next twenty-nine levels with nothing to
  * find out.
  *
+ * Two people are audible in the fragments, and both are meant to be
+ * recognisable before they are named. The big bandit counts — ears, steps,
+ * carts, days, miles — every time he speaks, so that when he counts the maize
+ * at the camp you already know whose voice that is. Maizy thins out as the
+ * distance grows: whole sentences at the gate, fragments by the marsh, one word
+ * in the wood, and nothing at all when you finally reach the fires.
+ *
  * The ladder, deliberately slow:
  *
  *   prologue      something is wrong with the ground. a voice.
@@ -69,6 +76,7 @@ const CHAPTER_BEATS = {
       n('Four rows cleared, and the ground keeps dropping them ahead of me.'),
       n('Corn does not walk. I know that much.'),
       v('…she’s still got a whole armful…'),
+      v('…four rows. that’s the lot of it.'),
       n('I did not hear that.'),
     ],
   },
@@ -88,7 +96,7 @@ const CHAPTER_BEATS = {
     lines: [
       n('The light went. I have walked this ground my whole life and I cannot find it in the dark.'),
       n('The corn is easier to find than the path.'),
-      v('…one every twenty steps. she’ll run out before the ridge…'),
+      v('…one every twenty steps. she’ll be out before the ridge…'),
       n('Someone has thought about this more carefully than I have.'),
     ],
   },
@@ -123,8 +131,9 @@ const CHAPTER_BEATS = {
     id: 'ch-no-mercy',
     lines: [
       n('Fires. Smoke, and voices in it, and this time they are outside my head.'),
-      v('the cart goes at first light.'),
+      v('three carts. she goes on the first.'),
       v('…she’s stopped dropping them.'),
+      v('good. that’s eleven miles of them wasted.'),
       n('I have started walking quietly.'),
     ],
   },
@@ -134,8 +143,8 @@ const CHAPTER_BEATS = {
     lines: [
       n('Out of the wet and onto flat hard ground that runs further than I can see.'),
       n('It throws you along. Twice now I have been running without having decided to.'),
-      v('…he’ll be across the reach by dark…'),
-      v('…if he doesn’t go over on it first.'),
+      v('two days he’s been walking. two.'),
+      v('…he’ll be across the reach by dark.'),
       n('They talk about me the way you talk about weather.'),
     ],
   },
@@ -145,9 +154,10 @@ const CHAPTER_BEATS = {
     lines: [
       n('Snow, and enough of it to wade rather than walk.'),
       n('Every step out here costs three of the ones behind it.'),
+      v('a mile and a half of this. she’ll not walk it twice.'),
       v('…she wasn’t dressed for this…'),
       n('I have her shawl inside my coat. I have had it since the field.'),
-      v('…papa i’m cold…'),
+      v('…papa. cold.'),
       n('I know. I know. I am coming.'),
     ],
   },
@@ -158,7 +168,7 @@ const CHAPTER_BEATS = {
       n('Two days awake. The ground closes behind me as fast as I open it.'),
       n('I could not find my way home now if I turned around.'),
       v('…how long has he been out there?'),
-      v('…papa, you’re going the wrong—'),
+      v('…papa. wrong way. wrong—'),
       n('I am not going home.'),
     ],
   },
@@ -170,6 +180,7 @@ const CHAPTER_BEATS = {
       n('The wood gives off its own light. Green, and cold, and coming from the trunks rather than falling on them.'),
       v('…don’t eat anything in there…'),
       v('…he won’t. he’s not hungry, he’s a father.'),
+      v('…papa…'),
       n('I have farmed beside this wood my whole life and never once walked into it.'),
       n('Her trail goes in.'),
     ],
@@ -195,8 +206,8 @@ const TOO_LATE = {
   id: 'too-late',
   title: 'Too late',
   lines: [
-    n('He counts it. Then he counts it again, slower, watching me the whole time.'),
-    n('Then he smiles.'),
+    n('He counts it. Of course he does. He has been counting the whole way — I have been hearing him count since the ridge.'),
+    n('Then he counts it again, slower, watching me the whole time. Then he smiles.'),
     v('"Too late, farmer. She went out with the first cart, hours back."'),
     v('"If only you were faster. You could have saved her."'),
   ],
@@ -223,6 +234,30 @@ const ENDING = {
     n('She hears me before she sees me. She says it was the hat — that she would know it anywhere, going on ahead in the dark.'),
     v('papa.'),
     n('Thank you for helping me reach my daughter.'),
+  ],
+  action: 'levels',
+}
+
+/**
+ * The other ending.
+ *
+ * Chosen, never stumbled into — the player has to decide to stop looking, from
+ * the finale screen, while the run is still winnable. A game that cannot be
+ * failed has no stakes, and a game that fails you by accident has no respect.
+ *
+ * It is not a dead end either. Beat every field afterwards and the true ending
+ * still lands; this is where he gave up, not where the story is confiscated.
+ */
+const LOST_HER = {
+  id: 'lost-her',
+  title: 'The road back',
+  lines: [
+    n('There is a point where a man stops walking, and I would rather tell you I reached it than pretend I did not.'),
+    n('The carts went on. I did not.'),
+    v('…'),
+    n('I go home in the morning and the field is still there, and the gate, and the gap in the hedge where they came through.'),
+    n('I keep her shawl in my coat.'),
+    n('Thank you for walking it with me. I am sorry it was not far enough.'),
   ],
   action: 'levels',
 }
@@ -299,6 +334,7 @@ export {
   TOO_LATE,
   SPEEDRUN_BRIEF,
   ENDING,
+  LOST_HER,
   WHISPERS,
   whisperFor,
   beatAfterChapter,

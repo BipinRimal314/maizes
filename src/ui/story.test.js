@@ -4,11 +4,11 @@ import {
   recordWin, bestFor, hasSeen, markSeen, maizeCollected,
   startSpeedrun, speedrunActive, speedrunComplete, speedrunProgress,
   parFor, isBeaten, finishSpeedrun, speedrunFinished, resetCache,
-  unlockedCount, isUnlocked,
+  unlockedCount, isUnlocked, speedrunGaveUp, concedeSpeedrun,
 } from './progress.js'
 import { isDevMode, setDevMode, initDevMode } from './devmode.js'
 import {
-  PROLOGUE, BARGAIN, TOO_LATE, SPEEDRUN_BRIEF, ENDING, CHAPTER_BEATS,
+  PROLOGUE, BARGAIN, TOO_LATE, SPEEDRUN_BRIEF, ENDING, LOST_HER, CHAPTER_BEATS,
   beatAfterChapter, beatsAfterLevel,
 } from './story.js'
 import levelData from '../../public/levels.json'
@@ -350,5 +350,98 @@ describe('a build handed to other people', () => {
     setDevMode(true)
     expect(isDevMode()).toBe(true)
     setDevMode(false)
+  })
+})
+
+describe('the other ending', () => {
+  function finishCampaign(ms = 20000) {
+    for (const level of levels) recordWin(level.name, { deaths: 1, ms })
+  }
+
+  it('is not reached by being slow', () => {
+    finishCampaign()
+    startSpeedrun(levels)
+    // failing every leg of the run is not conceding; nothing has happened yet
+    for (const level of levels) recordWin(level.name, { deaths: 9, ms: 90000 })
+    expect(speedrunGaveUp()).toBe(false)
+    expect(speedrunFinished()).toBe(false)
+  })
+
+  it('is reached by choosing it', () => {
+    finishCampaign()
+    startSpeedrun(levels)
+    concedeSpeedrun()
+    expect(speedrunGaveUp()).toBe(true)
+  })
+
+  it('survives a reload', () => {
+    finishCampaign()
+    startSpeedrun(levels)
+    concedeSpeedrun()
+    resetCache()
+    expect(speedrunGaveUp()).toBe(true)
+  })
+
+  it('does not confiscate the true ending', () => {
+    /*
+     * Giving up records where he stopped; it does not close the road. Beat
+     * every field afterwards and the rescue still lands — a player who put it
+     * down for a month and came back should not be locked out of the ending by
+     * a button they pressed in a bad mood.
+     */
+    finishCampaign(20000)
+    startSpeedrun(levels)
+    concedeSpeedrun()
+
+    for (const level of levels) recordWin(level.name, { deaths: 0, ms: 5000 })
+    expect(speedrunComplete(levels)).toBe(true)
+    expect(beatsAfterLevel(levels, 0, { active: true, complete: true })).toEqual([ENDING])
+  })
+
+  it('has its own words, not a re-run of the good one', () => {
+    expect(LOST_HER.id).not.toBe(ENDING.id)
+    const said = LOST_HER.lines.map((l) => l.text).join(' ')
+    expect(said).toMatch(/shawl/)
+    expect(said).not.toMatch(/thank you for helping me reach my daughter/i)
+  })
+})
+
+describe('the voices are people', () => {
+  it('gives the big bandit a tic before he is ever seen', () => {
+    /*
+     * He counts — ears, steps, carts, days, miles — so that when he counts the
+     * maize at the camp the player already knows whose voice that is. If this
+     * ever drops below a few chapters the payoff at the bargain is unearned.
+     */
+    const counting = new RegExp(
+      '\\b(\\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|'
+      + 'twenty|thirty|forty|fifty|hundred|half|first|second)\\b',
+      'i'
+    )
+    const chapters = Object.values(CHAPTER_BEATS).filter((beat) =>
+      beat.lines.some((l) => l.v === 'v' && counting.test(l.text))
+    )
+    expect(chapters.length).toBeGreaterThanOrEqual(4)
+    // and the payoff, where the tic is finally attached to a face
+    expect(TOO_LATE.lines.some((l) => l.text.includes('counts'))).toBe(true)
+  })
+
+  it('thins Maizy out as the distance grows', () => {
+    // whole sentences early, fragments late: the last thing she manages is one
+    // word, and at the camp there is nothing at all
+    const hers = (beat) => beat.lines
+      .filter((l) => l.v === 'v' && /papa/i.test(l.text))
+      .map((l) => l.text.replace(/[….—]/g, '').trim().split(/\s+/).length)
+
+    const early = hers(CHAPTER_BEATS['Two Trips'])
+    const late = hers(CHAPTER_BEATS['The Lit Wood'])
+    expect(early.length).toBeGreaterThan(0)
+    expect(late.length).toBeGreaterThan(0)
+    expect(Math.min(...late)).toBeLessThan(Math.min(...early))
+  })
+
+  it('leaves her silent at the camp', () => {
+    const spoken = BARGAIN.lines.filter((l) => l.v === 'v').map((l) => l.text.trim())
+    expect(spoken.every((line) => /^[—-]?$/.test(line))).toBe(true)
   })
 })

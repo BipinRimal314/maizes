@@ -147,6 +147,44 @@ pass reads as a smudge rather than as light. The sharp wall still goes down last
 a wall is a collision boundary before it is decoration, and the player has to see
 exactly where it is.
 
+### The trail map
+
+The premise promised that the player is shown everything they gathered, and the
+bargain screen showed a number. A number is not thirty-nine fields; it is a
+receipt for them.
+
+`TrailMap.jsx` draws the whole journey as one strip: chapters as bands of the
+ground they were walked over, taken from the same terrain table the board uses
+and sized by how many levels each holds, so the picture is the journey
+recoloured rather than a chart about it. Ground not yet reached is dimmed, and
+the ears counted are only the ones actually picked — the total on the bargain
+screen is the player's, not the game's.
+
+### Two endings
+
+A game that cannot be failed has no stakes, and one that fails you by accident
+has no respect. So the losing ending is **chosen**: a quiet "stop looking" on
+the finale, offered only while the run is still winnable, never handed out for
+being slow.
+
+It is not a dead end either. Conceding records where he stopped; beat every
+field afterwards and the rescue still lands. Someone who put the game down in a
+bad mood should not find the ending locked behind a button they pressed.
+
+### The voices are two people
+
+Both are meant to be recognisable before they are named.
+
+The big bandit **counts** — ears, rows, steps, carts, days, miles — every time
+he speaks, across five chapters, so that when he counts the maize at the camp
+the player already knows whose voice that is. A test asserts the tic appears
+often enough to earn its payoff.
+
+Maizy **thins out** as the distance grows: whole sentences at the gate,
+fragments by the marsh, one word in the wood, and nothing at all when you
+finally reach the fires. That silence at the camp is the point of the arc, and
+it is tested too.
+
 ### The speedrun
 
 Finishing the campaign freezes your best time on every level as its **par**, and
@@ -458,6 +496,7 @@ src/
     generate.js    build, judge, fit a hunter, judge again, keep or discard
   ui/              React shell: input, sizing, HUD, level list, finale
     story.js       the narrative, and which beat a level earns
+    TrailMap.jsx   the whole journey as one strip of ground
     progress.js    bests, beats seen, and the speedrun's frozen par
     telemetry.js   playtest events; inert unless configured
   scripts/         build-time campaign generation

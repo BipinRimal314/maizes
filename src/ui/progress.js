@@ -20,7 +20,7 @@ const STORAGE_KEY = 'maizes:v1'
 const EMPTY = () => ({
   done: {},
   story: {},
-  speedrun: { active: false, par: {}, beaten: {}, finished: false },
+  speedrun: { active: false, par: {}, beaten: {}, finished: false, gaveUp: false },
 })
 
 let cache = null
@@ -131,6 +131,19 @@ function startSpeedrun(levels) {
 
 const speedrunActive = () => read().speedrun.active === true
 const speedrunFinished = () => read().speedrun.finished === true
+const speedrunGaveUp = () => read().speedrun.gaveUp === true
+
+/**
+ * Stop looking.
+ *
+ * Deliberately not terminal: the run stays open and beating every field
+ * afterwards still lands the true ending. This records where he gave up, it
+ * does not confiscate the story.
+ */
+function concedeSpeedrun() {
+  read().speedrun.gaveUp = true
+  write()
+}
 const parFor = (name) => read().speedrun.par[name] ?? null
 const beatenTime = (name) => read().speedrun.beaten[name] ?? null
 const isBeaten = (name) => read().speedrun.beaten[name] != null
@@ -165,6 +178,7 @@ export {
   unlockedCount, isUnlocked,
   hasSeen, markSeen,
   startSpeedrun, speedrunActive, speedrunFinished, speedrunComplete,
+  speedrunGaveUp, concedeSpeedrun,
   speedrunProgress, parFor, beatenTime, isBeaten, finishSpeedrun,
   resetCache, STORAGE_KEY,
 }

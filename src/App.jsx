@@ -8,11 +8,11 @@ import { record, flush } from './ui/telemetry.js'
 import { loadMaize } from './engine/render.js'
 import { initDevMode } from './ui/devmode.js'
 import {
-  PROLOGUE, BARGAIN, SPEEDRUN_BRIEF, ENDING, beatsAfterLevel,
+  PROLOGUE, BARGAIN, SPEEDRUN_BRIEF, ENDING, LOST_HER, beatsAfterLevel,
 } from './ui/story.js'
 import {
-  hasSeen, markSeen, maizeCollected, startSpeedrun,
-  speedrunActive, speedrunComplete, finishSpeedrun,
+  hasSeen, markSeen, startSpeedrun,
+  speedrunActive, speedrunComplete, finishSpeedrun, concedeSpeedrun,
 } from './ui/progress.js'
 
 const BASE = import.meta.env?.BASE_URL || '/'
@@ -118,12 +118,20 @@ function App() {
     if (rest.length > 0) return
 
     // the queue has drained: go on to whatever it was interrupting
-    if (beat.id === ENDING.id) { setFinished(true); return }
+    if (beat.id === ENDING.id || beat.id === LOST_HER.id) { setFinished(true); return }
     if (resumeAt !== null) {
       setCurrent(resumeAt)
       setResumeAt(null)
     }
   }, [queue, levels, resumeAt])
+
+  /** He stops walking. Chosen from the finale, never handed out for being slow. */
+  const concede = useCallback(() => {
+    concedeSpeedrun()
+    record('speedrun_conceded', { levelIndex: levels.length - 1 })
+    setFinished(false)
+    setQueue([LOST_HER])
+  }, [levels])
 
   const backToLevels = useCallback(() => {
     setCurrent(null)
@@ -139,7 +147,7 @@ function App() {
     return (
       <Story
         beat={beat}
-        maize={beat.id === BARGAIN.id ? maizeCollected(levels) : null}
+        trail={beat.id === BARGAIN.id ? levels : null}
         onDone={advance}
         actionLabel={queue.length === 1 && resumeAt !== null ? 'on you go' : undefined}
       />
@@ -160,7 +168,16 @@ function App() {
     )
   }
 
-  if (finished) return <Finale levels={levels} total={levels.length} onBack={backToLevels} />
+  if (finished) {
+    return (
+      <Finale
+        levels={levels}
+        total={levels.length}
+        onBack={backToLevels}
+        onConcede={concede}
+      />
+    )
+  }
 
   return <Levels levels={levels} onPick={setCurrent} />
 }

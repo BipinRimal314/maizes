@@ -1,4 +1,7 @@
-import { totals, speedrunActive, speedrunFinished, speedrunProgress, maizeCollected } from './progress.js'
+import {
+  totals, speedrunActive, speedrunFinished, speedrunProgress, maizeCollected, speedrunGaveUp,
+} from './progress.js'
+import TrailMap from './TrailMap.jsx'
 
 function duration(ms) {
   const total = Math.floor(ms / 1000)
@@ -15,23 +18,32 @@ function duration(ms) {
  * sitting, so they survive a reload and mean something — "your best of every
  * level, added up" is a number worth chasing down.
  */
-function Finale({ levels = [], total, onBack }) {
+function Finale({ levels = [], total, onBack, onConcede = null }) {
   const stats = totals()
   const complete = stats.levels >= total
   const rescued = speedrunFinished()
+  const conceded = speedrunGaveUp()
   const racing = speedrunActive() && !rescued
   const run = racing ? speedrunProgress(levels) : null
 
   return (
     <div className="result">
       <div className="card card--finale">
-        <div className="card__emoji">{rescued ? '\u{1F33D}' : racing ? '\u{1F3C3}' : '\u{1F3C1}'}</div>
+        <div className="card__emoji">
+          {rescued ? '\u{1F33D}' : conceded ? '\u{1F342}' : racing ? '\u{1F3C3}' : '\u{1F3C1}'}
+        </div>
         <h2 className="card__title">
-          {rescued ? 'you got her back.' : racing ? 'still running.' : 'that\u2019s all of them.'}
+          {rescued
+            ? 'you got her back.'
+            : conceded
+              ? 'he went home.'
+              : racing ? 'still running.' : 'that\u2019s all of them.'}
         </h2>
         <p className="card__sub">
           {rescued
-            ? 'thirty fields, twice, and the second time fast enough.'
+            ? 'every field, twice, and the second time fast enough.'
+            : conceded
+              ? 'the fields are still there. so is the gate, and the gap in the hedge.'
             : racing
               ? `${run.beaten} of ${run.total} fields beaten. the rest are still slower than they were.`
               : complete
@@ -62,6 +74,8 @@ function Finale({ levels = [], total, onBack }) {
             : 'not one clean run. there is still something left to do.'}
         </p>
 
+        {levels.length > 0 && <TrailMap levels={levels} compact />}
+
         {rescued
           ? (
             <p className="card__punchline">
@@ -80,6 +94,11 @@ function Finale({ levels = [], total, onBack }) {
 
         <div className="card__actions">
           <button className="btn btn--primary" onClick={onBack}>levels</button>
+          {/* only while the run is still winnable: an ending you choose, never
+              one you are handed for being slow */}
+          {racing && !conceded && onConcede && (
+            <button className="btn" onClick={onConcede}>stop looking</button>
+          )}
         </div>
       </div>
     </div>

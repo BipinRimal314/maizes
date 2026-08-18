@@ -520,3 +520,88 @@ button { font: inherit; color: inherit; cursor: pointer; }
   }
   .btn:hover, .card-level:hover { transform: none; }
 }
+
+/* --------------------------------------------------------------- trail map */
+
+/* Everything he has walked, as one strip. Chapters are bands of the ground
+   they were walked over, taken from the same terrain table the board uses, and
+   sized by how many levels each holds — so the picture is the journey
+   recoloured rather than a chart about it. */
+.trail { display: flex; flex-direction: column; gap: 0.4rem; margin: 1.6rem 0 0.4rem; }
+
+.trail__strip {
+  display: flex;
+  height: 3.2rem;
+  border: 2px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.trail--compact .trail__strip { height: 2.4rem; }
+
+.trail__leg {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  min-width: 0;
+  opacity: 0.32;                      /* ground he has not reached yet */
+  border-right: 1px solid rgba(0, 0, 0, 0.14);
+  transition: opacity 0.4s;
+}
+.trail__leg:last-child { border-right: 0; }
+.trail__leg.is-walked { opacity: 1; }
+
+.trail__marks { display: flex; gap: 0.16rem; align-items: center; }
+.trail__mark {
+  width: 0.34rem; height: 0.34rem;
+  border: 1px solid;
+  border-radius: 50%;
+  opacity: 0.5;
+}
+.trail__mark.is-walked { opacity: 1; }
+
+.trail__ears {
+  position: absolute;
+  bottom: 0.15rem;
+  font-family: var(--display);
+  font-size: 0.55rem;
+  font-weight: 800;
+  color: rgba(0, 0, 0, 0.5);
+  font-variant-numeric: tabular-nums;
+}
+.trail--compact .trail__ears { display: none; }
+
+.trail__names { display: flex; gap: 0; }
+.trail__name {
+  min-width: 0;
+  font-family: var(--display);
+  font-size: 0.5rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  text-align: center;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  padding: 0 0.1rem;
+}
+.trail--compact .trail__names { display: none; }
+
+.trail__total {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 0.7rem;
+}
+.trail__ear { width: 1.9rem; height: 1.9rem; }
+.trail__count {
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: 1.7rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--flag);
+}
+.trail__unit { font-size: 0.76rem; color: var(--ink-soft); }

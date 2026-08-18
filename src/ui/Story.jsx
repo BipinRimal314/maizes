@@ -1,4 +1,5 @@
 import maizeUrl from '../assets/maize.png'
+import TrailMap from './TrailMap.jsx'
 
 /**
  * One story card.
@@ -13,7 +14,7 @@ import maizeUrl from '../assets/maize.png'
  * they say, so if the reader cannot tell them apart at a glance there is no
  * gap — just a paragraph.
  */
-function Story({ beat, maize = null, onDone, actionLabel }) {
+function Story({ beat, maize = null, trail = null, onDone, actionLabel }) {
   return (
     <div className="result">
       <div className="card card--story">
@@ -29,6 +30,8 @@ function Story({ beat, maize = null, onDone, actionLabel }) {
             </p>
           ))}
         </div>
+
+        {trail && <TrailMap levels={trail} />}
 
         {maize !== null && (
           <div className="story__tally">
