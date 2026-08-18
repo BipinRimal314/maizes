@@ -1,0 +1,12 @@
+# Vercel builds the web app only. The desktop wrapper is compiled by the
+# GitHub Actions matrix instead, and its Rust target directory is gigabytes of
+# build cache that would be uploaded on every deploy.
+src-tauri/target
+src-tauri/gen
+
+node_modules
+dist
+
+# nothing here affects the built page
+*.md
+!README.md
