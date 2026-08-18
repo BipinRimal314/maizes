@@ -169,6 +169,7 @@ function App() {
     const beat = queue[0]
     return (
       <Story
+        key={beat.id}
         beat={beat}
         trail={beat.id === BARGAIN.id ? levels : null}
         onDone={advance}

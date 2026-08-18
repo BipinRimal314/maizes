@@ -34,48 +34,17 @@
 import { createBall, resetBall, stepBall, ballCell } from './physics.js'
 import { key, trapSet, flagSet, surfaceAt } from './grid.js'
 import { createHunter, sleepHunter, stepHunter } from './hunter.js'
+/*
+ * Every word the player reads lives in src/content.js, including these. The
+ * engine imports them rather than holding them so that changing what the farmer
+ * says never means opening the file that decides whether he is alive.
+ */
+import { DEATH_QUIPS, CAUGHT_QUIPS, PICKED_ONE, PICKED_LAST, GHOST_WOKE } from '../content.js'
 
 const STEP_MS = 1000 / 60
 const TRAIL_LENGTH = 14
 const RESPAWN_FLASH_MS = 450
 const CAPTURE_FLASH_MS = 700
-
-/*
- * The farmer, out loud.
- *
- * These used to be the game sneering at the player — "have you tried being
- * better at this?" — which was funny when the game was about suffering and is
- * wrong now that it is about a man looking for his daughter. Nobody is being
- * mocked here. It is a tired dad swearing the way a tired dad swears: mild,
- * agricultural, faintly ridiculous, and every one of them turning back toward
- * her before the line is out.
- *
- * The pattern is deliberate — an oath, then the worry underneath it. The oath
- * is the whimsy and the second half is the reason you keep playing.
- */
-const DEATH_QUIPS = [
-  'Oh, barnacles. Down a hole, at my age.',
-  'Sweet mother of harvest. Mind your feet, old man.',
-  'Well, blister my boots. Up. She is still out there.',
-  'Great grieving gourds — who digs a pit in a field and leaves it open?',
-  'Tarnation. That is twice now. We need not tell her mother.',
-  'By the plough and all that pulls it. Again, then.',
-  'Heavens to Betsy. Nothing broken. Nothing that counts.',
-  "Corn's teeth. Forty years farming and never once fallen in a field.",
-  'Oh, thistles. Get up. Get up.',
-  'Sakes alive, the ground is against me now as well.',
-  'Jumping junebugs, that smarts. She would have laughed at that.',
-  'Blast and bother. Back to the start, and no nearer to her.',
-]
-
-const CAUGHT_QUIPS = [
-  'Merciful heavens. It was right there beside me.',
-  'Sweet corn and salvation — it does not even hurry.',
-  'Oh, thistles. It has the measure of my hat now.',
-  'Land sakes. Faster, old man. Faster.',
-  'By the barn door, that thing is patient.',
-  'Bless and keep us. Do not let her see me like this.',
-]
 
 function createGame(grid) {
   return {
@@ -165,9 +134,7 @@ function capture(game, at) {
   // a capture is a return to the start too, so the same rule applies
   sleepHunter(game.hunter, game.now)
   game.flash = { x: at.x, y: at.y, until: game.now + CAPTURE_FLASH_MS, kind: 'flag' }
-  game.quip = game.exitOpen
-    ? 'That is the last of them. The way on is open. Good girl.'
-    : 'One more of hers. All the way back with it, then.'
+  game.quip = game.exitOpen ? PICKED_LAST : PICKED_ONE
   emit(game, game.exitOpen ? 'unlock' : 'capture')
   if (game.onCapture) game.onCapture(at)
 }
@@ -227,7 +194,7 @@ function stepGame(game) {
   if (stepHunter(game.hunter, game.grid, game.ball, game.now)) {
     lose(game, cell)
   } else if (wasAsleep && game.hunter.active) {
-    game.quip = 'Something is up and about out there. It knows where I am.'
+    game.quip = GHOST_WOKE
     emit(game, 'hunter')
   }
 }

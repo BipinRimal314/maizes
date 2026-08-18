@@ -76,8 +76,39 @@ function tone(ctx, { type = 'sine', from, to, gain, duration, delay = 0 }) {
   osc.stop(start + duration)
 }
 
+/** A filtered burst of noise: an impact rather than a pitch. */
+function thud(ctx, { cutoff, gain, duration, q = 1 }) {
+  const source = ctx.createBufferSource()
+  source.buffer = noise(ctx)
+  const filter = ctx.createBiquadFilter()
+  filter.type = 'lowpass'
+  filter.frequency.value = cutoff
+  filter.Q.value = q
+  const amp = ctx.createGain()
+  const now = ctx.currentTime
+  amp.gain.setValueAtTime(gain * volume, now)
+  amp.gain.exponentialRampToValueAtTime(0.0005, now + duration)
+  source.connect(filter).connect(amp).connect(ctx.destination)
+  source.start(now)
+  source.stop(now + duration)
+}
+
 const VOICES = {
-  death: (ctx) => tone(ctx, { type: 'sawtooth', from: 300, to: 80, gain: 0.14, duration: 0.28 }),
+  /*
+   * Death, and the reason it is two sounds.
+   *
+   * It used to be a lone sawtooth sweeping 300Hz down to 80Hz — which was
+   * audible on an empty board and stopped being so once the terrain ambience
+   * arrived, because the drone beds sit at 44-82Hz and the fall lands straight
+   * on top of them. A tone that ends inside another tone is a tone nobody
+   * hears. So the fall is shorter and no longer reaches the drones, and it is
+   * fronted by a filtered noise transient: an impact reads through a drone in a
+   * way a pitch does not.
+   */
+  death: (ctx) => {
+    thud(ctx, { cutoff: 900, gain: 0.20, duration: 0.14, q: 0.9 })
+    tone(ctx, { type: 'sawtooth', from: 340, to: 130, gain: 0.17, duration: 0.24 })
+  },
   capture: (ctx) => tone(ctx, { from: 660, to: 990, gain: 0.16, duration: 0.18 }),
   unlock: (ctx) => [523, 659, 784].forEach((f, i) =>
     tone(ctx, { from: f, gain: 0.16, duration: 0.24, delay: i * 0.09 })),
@@ -89,7 +120,10 @@ const VOICES = {
   hunter: (ctx) => [[196, 0], [147, 0.14]].forEach(([f, delay]) =>
     tone(ctx, { type: 'triangle', from: f, to: f * 0.72, gain: 0.15, duration: 0.34, delay })),
 
-  caught: (ctx) => tone(ctx, { type: 'square', from: 220, to: 55, gain: 0.13, duration: 0.42 }),
+  caught: (ctx) => {
+    thud(ctx, { cutoff: 500, gain: 0.22, duration: 0.3, q: 0.7 })
+    tone(ctx, { type: 'square', from: 240, to: 90, gain: 0.15, duration: 0.42 })
+  },
 }
 
 function playSound(name) {

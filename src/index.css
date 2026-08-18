@@ -621,3 +621,26 @@ button { font: inherit; color: inherit; cursor: pointer; }
 }
 .menu__slider input { flex: 1; accent-color: var(--flag); cursor: pointer; }
 .menu__slider input:disabled { opacity: 0.35; cursor: default; }
+
+/* the line still being typed carries the cursor */
+.story__narrator.is-typing::after,
+.story__voice.is-typing::after {
+  content: '';
+  display: inline-block;
+  width: 0.5ch;
+  height: 1em;
+  margin-left: 0.1ch;
+  vertical-align: -0.12em;
+  background: currentColor;
+  opacity: 0.65;
+  animation: story-caret 1s steps(1) infinite;
+}
+@keyframes story-caret { 0%, 50% { opacity: 0.65; } 51%, 100% { opacity: 0; } }
+
+/* while it is still typing the button offers to hurry it, not to leave */
+.btn.is-waiting { opacity: 0.75; }
+
+@media (prefers-reduced-motion: reduce) {
+  .story__narrator.is-typing::after,
+  .story__voice.is-typing::after { display: none; }
+}

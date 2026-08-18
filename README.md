@@ -564,6 +564,46 @@ Two pieces of feel:
   the DOM node — a transform on the element would reflow the page sixty times a
   second. Losing the level shakes harder than losing the walk back.
 
+## Changing the words
+
+**Every line the player reads is in `src/content.js`.** Nothing in that file
+does anything — it is data, imported by the engine for the in-level lines and by
+the story layer for the cards between levels. Edit a line, reload, done.
+
+| in that file | what it is |
+|---|---|
+| `PROLOGUE`, `CHAPTER_BEATS`, `BARGAIN`, `TOO_LATE`, `SPEEDRUN_BRIEF`, `ENDING`, `LOST_HER` | the story cards, in the order they are shown |
+| `WHISPERS` | fragments heard mid-level, keyed by level name |
+| `DEATH_QUIPS`, `CAUGHT_QUIPS` | what the farmer says when it goes wrong |
+| `PICKED_ONE`, `PICKED_LAST`, `GHOST_WOKE` | the other in-level lines |
+
+`n('...')` is the farmer and `v('...')` is a voice — the reveal happens in the
+gap between them, so a new line belongs to one of those two and not to a
+narrator explaining things.
+
+The one exception is chapter **names and blurbs**, which live in
+`src/scripts/buildLevels.js` because they are baked into `levels.json` when the
+campaign is generated. Change one and run `npm run levels`.
+
+`src/ui/story.js` is now only the sequencing — which beat is owed when — so a
+rewrite never means reading logic and a logic change never means scrolling past
+prose.
+
+### The cards type themselves out
+
+A wall of text arriving whole reads as something to get past; typed, the farmer
+has a pace, and the pauses between his lines and the voices are where the
+counterpoint lands. The voices type slower, because they are not sure.
+
+Any key or click fills the card in — nobody should be held at reading speed on
+their second time through — and `prefers-reduced-motion` shows the whole thing
+at once rather than typing it more slowly.
+
+The visible text is **derived from a cursor**, not accumulated into an array.
+The first version appended to state as it went and, when React double-invoked
+the effect, produced `['T', undefined, 'papa']` — two overlapping writers
+interleaving into one array. A cursor cannot interleave.
+
 ## Layout
 
 ```

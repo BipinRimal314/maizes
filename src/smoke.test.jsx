@@ -53,6 +53,15 @@ beforeEach(() => {
     value: fakeStorage(), configurable: true, writable: true,
   })
   global.IS_REACT_ACT_ENVIRONMENT = true
+  // story cards type themselves out; asking for reduced motion renders them
+  // whole, which is what a test wants and what a player who asked for it gets
+  window.matchMedia = (query) => ({
+    matches: query.includes('prefers-reduced-motion'),
+    media: query, onchange: null,
+    addEventListener() {}, removeEventListener() {},
+    addListener() {}, removeListener() {},
+    dispatchEvent: () => false,
+  })
   HTMLCanvasElement.prototype.getContext = () => CTX
   global.OffscreenCanvas = class {
     constructor(w, h) { this.width = w; this.height = h }
