@@ -8,6 +8,7 @@ import { findPath, safeReachable } from './analysis.js'
 import { key } from '../engine/grid.js'
 import { levelMetrics, shapeDistance } from './metrics.js'
 import { INTENTS } from './generate.js'
+import { checkTeaching, LESSONS } from './teaching.js'
 import { RULES } from './oracle.js'
 import { hunterSpeedCap } from '../engine/hunter.js'
 
@@ -202,6 +203,76 @@ describe('every level asks its own question', () => {
     for (const level of levels) {
       expect(level.difficulty.perfectSeconds, level.name)
         .toBeLessThanOrEqual(RULES.MAX_PERFECT_SECONDS)
+    }
+  })
+})
+
+describe('the level a mechanic arrives on teaches it', () => {
+  /*
+   * Fairness is the oracle's job. This is legibility, and only on the one level
+   * in the campaign where each mechanic first appears — a first encounter has
+   * to be impossible to miss and survivable when you miss it. Everything after
+   * may be as quiet and as cruel as it likes.
+   */
+  const teaching = levels.filter((level) => level.teaches)
+
+  it('has a level for every lesson defined', () => {
+    // a lesson nobody is assigned is a rule that never runs
+    const taught = new Set(teaching.map((l) => l.teaches))
+    for (const lesson of Object.keys(LESSONS)) {
+      expect(taught.has(lesson), `${lesson} is never taught by any level`).toBe(true)
+    }
+  })
+
+  it('teaches each one exactly once', () => {
+    const counts = new Map()
+    for (const level of teaching) {
+      counts.set(level.teaches, (counts.get(level.teaches) ?? 0) + 1)
+    }
+    for (const [lesson, count] of counts) {
+      expect(count, `${lesson} is taught on ${count} levels`).toBe(1)
+    }
+  })
+
+  it('teaches on the first level of its chapter, never later', () => {
+    // by the second level of a chapter the lesson is over
+    for (const level of teaching) {
+      expect(level.name, `${level.name} carries a lesson`).toMatch(/ 1$/)
+    }
+  })
+
+  it('still passes its own lesson, measured from the shipped file', () => {
+    for (const level of teaching) {
+      const badly = checkTeaching(level.grid, level.teaches, level.difficulty)
+      expect(badly, `${level.name}: ${badly}`).toBeNull()
+    }
+  })
+})
+
+describe('the chapter cards give nothing away', () => {
+  /*
+   * These used to announce their own mechanic — "Wider, darker, and something
+   * in it still looking for me" hands the player the ghost before they have met
+   * it. A blurb says where the farmer is and how he is holding up. The board
+   * says what is new.
+   */
+  const TELLS = [
+    'fog', 'dark', 'see', 'looking', 'remember', 'forget', 'faster', 'slow',
+    'wade', 'trap', 'alone', 'follow', 'closes', 'light',
+  ]
+
+  it('says nothing about a mechanic', () => {
+    for (const level of levels) {
+      if (!level.blurb) continue
+      const leak = TELLS.find((word) => level.blurb.toLowerCase().includes(word))
+      expect(leak, `${level.chapter}: "${level.blurb}" mentions "${leak}"`).toBeUndefined()
+    }
+  })
+
+  it('leaves the opening chapter silent', () => {
+    // four levels of one ear on an open board explain themselves
+    for (const level of levels.filter((l) => l.chapter === levels[0].chapter)) {
+      expect(level.blurb, `${level.name} has a caption it does not need`).toBeNull()
     }
   })
 })

@@ -73,7 +73,7 @@ function Levels({ levels, onPick }) {
       {chapters.map((chapter) => (
         <section className="chapter" key={chapter.name}>
           <h2 className="chapter__name">{chapter.name}</h2>
-          <p className="chapter__blurb">{chapter.blurb}</p>
+          {chapter.blurb && <p className="chapter__blurb">{chapter.blurb}</p>}
           <div className="chapter__grid">
             {chapter.levels.map((level) => {
               const best = bestFor(level.name)

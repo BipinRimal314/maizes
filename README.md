@@ -232,6 +232,56 @@ process that made it:
 Result: thirty-nine levels, **thirty-nine distinct configurations**, closest
 in-chapter pair 0.56 apart where it used to be 0.17.
 
+## Teaching without telling
+
+The explanation curve used to run backwards. The opening — one ear on an open
+board with nothing hidden — carried captions explaining itself, and nine of the
+eleven chapter cards announced their own mechanic before the player had met it.
+*"Wider, darker, and something in it still looking for me"* hands you the ghost
+in advance.
+
+The rule now is **silence early, instruments late, tutorials never.**
+
+- **Warm Up has no caption at all.** Four levels that explain themselves need no
+  help, and a caption there is noise.
+- **A blurb says where the farmer is and how he is holding up.** Never what is
+  new. A test asserts no blurb contains any of the words that would give a
+  mechanic away.
+- **The ghost countdown stays.** It arrives at level 16 alongside the thing it
+  measures, and by then four systems are being timed at once. A gauge you read
+  while playing is not a lesson you are told.
+- **Surface patches are outlined**, not just tinted. A flat tint was legible on
+  an empty board and stopped being so once fog, a hunter and a rotting trail
+  landed on top of it — and a patch whose edge you cannot see is a physics
+  change you cannot plan for.
+
+### The level a mechanic arrives on has to demonstrate it
+
+`teaching.js` adds one constraint to the *first* level of each mechanic, and to
+no other level in the game. A first encounter should be impossible to miss and
+survivable when you do miss it; everything after may be as quiet and as cruel
+as it likes.
+
+| lesson | what the level must do |
+|---|---|
+| `fog` | put an ear inside the lit circle, so the first thing learned is that the light travels with you |
+| `hunter` | leave three seconds of it coming, from wherever you stand when it wakes — measured as the graph radius against its speed |
+| `sand` / `snow` | lay at least three cells of the patch **across the route**, never on a branch you might skip |
+| `memory` | make one trip out last longer than the memory span, or nothing is seen to fade |
+| `traps` | be a board where a blind player actually finds one |
+
+Two of these shape the campaign and three are regression guards, which is worth
+saying plainly rather than implying all five are doing equal work. `fog` and the
+ground lessons reject real candidates — four fog seeds, and roughly one sand
+level in seven would fail. `hunter`, `memory` and `traps` pass on every level
+that reaches them, because those mechanics already introduce themselves well.
+They earn their place by failing loudly if that stops being true: shrink a
+board, speed the hunter up, or lengthen a memory span, and the level it arrives
+on is refused rather than quietly becoming an ambush.
+
+`teaching.test.js` shows every lesson both passing and failing on hand-built
+mazes, because a check that cannot fail is not a check.
+
 ## Levels are proven, not authored
 
 No maze geometry is written by hand. A level is generated from a seed, then

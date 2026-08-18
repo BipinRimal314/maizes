@@ -14,6 +14,7 @@ import { branchDepth, distancesFrom, safeReachable } from './analysis.js'
 import { judge } from './oracle.js'
 import { hunterSpeedCap } from '../engine/hunter.js'
 import { levelMetrics, shapeDistance } from './metrics.js'
+import { checkTeaching } from './teaching.js'
 
 /**
  * Difficulty tiers. Only a handful of numbers vary, which is the point: there
@@ -417,7 +418,9 @@ function fitHunter(grid, tier, difficulty) {
  * Returns the level plus the verdict that admitted it, so the shipped set
  * carries its own evidence.
  */
-function generateLevel(tierName, seed, { attempts = 2500, intent: intentName = null, unlike = [], apart = 0 } = {}) {
+function generateLevel(tierName, seed, {
+  attempts = 2500, intent: intentName = null, unlike = [], apart = 0, teaches = null,
+} = {}) {
   const tier = TIERS[tierName]
   if (!tier) throw new Error(`unknown tier: ${tierName}`)
 
@@ -471,12 +474,27 @@ function generateLevel(tierName, seed, { attempts = 2500, intent: intentName = n
       verdict = judge(grid)
     }
 
+    /*
+     * On the one level where a mechanic arrives, it also has to be legible.
+     * Checked last because it is the only rule that needs the difficulty
+     * numbers, and because a level that is unfair is not worth asking whether
+     * it teaches well.
+     */
+    if (verdict.ok && teaches) {
+      const badly = checkTeaching(grid, teaches, verdict.difficulty)
+      if (badly) {
+        rejected.push({ seed: candidateSeed, problems: [`teaches ${teaches} badly: ${badly}`] })
+        continue
+      }
+    }
+
     if (verdict.ok) {
       return {
         grid,
         seed: candidateSeed,
         tier: tierName,
         intent: intentName,
+        teaches,
         metrics,
         difficulty: verdict.difficulty,
         attempts: attempt + 1,
@@ -515,6 +533,7 @@ function toJSON(level, name) {
     name,
     tier: level.tier,
     intent: level.intent,
+    teaches: level.teaches ?? null,
     seed: level.seed,
     c: grid.cols,
     r: grid.rows,

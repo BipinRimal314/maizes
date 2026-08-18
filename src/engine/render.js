@@ -90,15 +90,56 @@ const SURFACE_TINTS = {
   [SNOW]: 'rgba(150, 200, 240, 0.34)',
 }
 
+/** The same colours at full strength, for the outline. */
+const SURFACE_EDGES = {
+  [SAND]: 'rgba(214, 138, 20, 0.85)',
+  [SNOW]: 'rgba(96, 168, 226, 0.85)',
+}
+
 function drawSurfaces(ctx, grid, cellSize) {
   if (!grid.surface) return
-  for (let y = 0; y < grid.rows; y++) {
-    for (let x = 0; x < grid.cols; x++) {
-      const tint = SURFACE_TINTS[grid.surface[y * grid.cols + x]]
-      if (!tint) continue
-      ctx.fillStyle = tint
-      ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize)
+
+  const at = (x, y) =>
+    (x < 0 || y < 0 || x >= grid.cols || y >= grid.rows) ? 0 : grid.surface[y * grid.cols + x]
+
+  for (const kind of [SAND, SNOW]) {
+    const tint = SURFACE_TINTS[kind]
+    let any = false
+
+    for (let y = 0; y < grid.rows; y++) {
+      for (let x = 0; x < grid.cols; x++) {
+        if (at(x, y) !== kind) continue
+        any = true
+        ctx.fillStyle = tint
+        ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize)
+      }
     }
+    if (!any) continue
+
+    /*
+     * Outline the patch, not each cell.
+     *
+     * A flat tint was legible on an empty board and stopped being so once the
+     * late chapters put fog, a hunter and a rotting trail on top of it — and a
+     * patch whose edge you cannot see is a physics change you cannot plan for.
+     * Only the boundary is stroked, so the inside stays clean and the shape
+     * reads as one place rather than a grid of tinted squares.
+     */
+    ctx.strokeStyle = SURFACE_EDGES[kind]
+    ctx.lineWidth = Math.max(1, cellSize * 0.045)
+    ctx.beginPath()
+    for (let y = 0; y < grid.rows; y++) {
+      for (let x = 0; x < grid.cols; x++) {
+        if (at(x, y) !== kind) continue
+        const px = x * cellSize
+        const py = y * cellSize
+        if (at(x, y - 1) !== kind) { ctx.moveTo(px, py); ctx.lineTo(px + cellSize, py) }
+        if (at(x, y + 1) !== kind) { ctx.moveTo(px, py + cellSize); ctx.lineTo(px + cellSize, py + cellSize) }
+        if (at(x - 1, y) !== kind) { ctx.moveTo(px, py); ctx.lineTo(px, py + cellSize) }
+        if (at(x + 1, y) !== kind) { ctx.moveTo(px + cellSize, py); ctx.lineTo(px + cellSize, py + cellSize) }
+      }
+    }
+    ctx.stroke()
   }
 }
 
@@ -554,7 +595,7 @@ function drawScene(ctx, game, cellSize) {
 }
 
 export {
-  COLORS, TERRAINS, SURFACE_TINTS, terrainOf, drawSurfaces,
+  COLORS, TERRAINS, SURFACE_TINTS, SURFACE_EDGES, terrainOf, drawSurfaces,
   WALL_WIDTH, MAIZE_SCALE, setupCanvas, ballDrawMetrics,
   loadMaize, maizeReady, setMaizeImage, drawMaizeIcon,
   drawScene, drawMaze, drawBall, drawFog, drawHunter, drawWakeWarning,

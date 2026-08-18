@@ -31,6 +31,16 @@ const MIN_SHAPE_DISTANCE = 0.55
 /**
  * The campaign. Each chapter teaches one thing and then stops.
  *
+ * `blurb` says where the farmer is and how he is holding up. It never says what
+ * is new — nine of these used to announce their own mechanic ("something in it
+ * still looking for me"), which hands the player the lesson before they have
+ * met it. Warm Up has none at all: four levels of one ear on an open board
+ * explain themselves, and a caption there is noise.
+ *
+ * `teaches` names the mechanic arriving in this chapter, and applies an extra
+ * constraint to its *first* level only — see teaching.js. Every level after it
+ * may be as quiet as it likes.
+ *
  * `intents` gives every level its own question to ask, so a chapter is a set of
  * different problems built from the same mechanics rather than the same problem
  * generated from different seeds.
@@ -53,16 +63,17 @@ const CHAPTERS = [
     name: 'Warm Up',
     intents: ['artery', 'warren', 'circuit', 'bottleneck'],
     terrain: 'field',
-    blurb: 'My own field, and one ear of hers lying in it. That is all this is.',
+    blurb: null,
     tier: 'gentle',
     count: 4,
     seed: 1000,
   },
   {
     name: 'Two Trips',
+    teaches: 'traps',
     intents: ['bottleneck', 'detour', 'gauntlet'],
     terrain: 'track',
-    blurb: 'Two of them out here now, and the ground not to be trusted.',
+    blurb: 'Past the gate, where my land stops being mine.',
     tier: 'brisk',
     count: 3,
     seed: 2000,
@@ -71,9 +82,10 @@ const CHAPTERS = [
   // waiting until level 11 spent half the campaign before getting to it.
   {
     name: 'First Light',
+    teaches: 'fog',
     intents: ['gauntlet', 'artery', 'warren', 'circuit'],
     terrain: 'dusk',
-    blurb: 'The same field it always was. I simply cannot see it any more.',
+    blurb: 'The sun went down somewhere behind me.',
     tier: 'misty',
     count: 4,
     seed: 2500,
@@ -82,7 +94,7 @@ const CHAPTERS = [
     name: 'The Fog',
     intents: ['circuit', 'bottleneck', 'detour', 'warren'],
     terrain: 'woods',
-    blurb: 'Closer in. I shall have to remember what I walked through.',
+    blurb: 'Low ground, and the air gone white with it.',
     tier: 'blind',
     count: 4,
     seed: 3000,
@@ -92,9 +104,10 @@ const CHAPTERS = [
   // new variable, so a player who suddenly struggles knows what changed.
   {
     name: 'Company',
+    teaches: 'hunter',
     intents: ['warren', 'bottleneck', 'artery', 'gauntlet'],
     terrain: 'night',
-    blurb: 'The same as before. I am only not alone in it now.',
+    blurb: 'The long field under the ridge.',
     tier: 'hunted',
     count: 4,
     seed: 3500,
@@ -103,7 +116,7 @@ const CHAPTERS = [
     name: 'No Mercy',
     intents: ['gauntlet', 'circuit', 'detour', 'warren', 'bottleneck'],
     terrain: 'ridge',
-    blurb: 'Wider, darker, and something in it still looking for me.',
+    blurb: 'Up on the ridge itself. Nothing grows here.',
     tier: 'cruel',
     count: 5,
     seed: 4000,
@@ -112,18 +125,20 @@ const CHAPTERS = [
   // it — one new thing per chapter, and neither ever leaves again.
   {
     name: 'The Dry Reach',
+    teaches: 'sand',
     intents: ['bottleneck', 'artery', 'circuit'],
     terrain: 'desert',
-    blurb: 'Hard flat ground, and it throws you along faster than you meant to go.',
+    blurb: 'Flat country. It goes further than it looks.',
     tier: 'dry',
     count: 3,
     seed: 6000,
   },
   {
     name: 'The White Mile',
+    teaches: 'snow',
     intents: ['circuit', 'gauntlet', 'detour'],
     terrain: 'snow',
-    blurb: 'Drifts to wade. The sand was kinder and I did not thank it.',
+    blurb: 'Higher, and colder than it has any right to be.',
     tier: 'white',
     count: 3,
     seed: 6500,
@@ -132,9 +147,10 @@ const CHAPTERS = [
   // to the chapter before it in every other respect.
   {
     name: 'Forgetting',
+    teaches: 'memory',
     intents: ['detour', 'warren', 'artery'],
     terrain: 'marsh',
-    blurb: 'I will walk every foot of it. I will not keep a step.',
+    blurb: 'Marsh, and two days now without sleep.',
     tier: 'fading',
     count: 3,
     seed: 4500,
@@ -145,7 +161,7 @@ const CHAPTERS = [
     name: 'The Lit Wood',
     intents: ['artery', 'circuit', 'bottleneck'],
     terrain: 'enchanted',
-    blurb: 'The trees here give off their own light. I do not care for it.',
+    blurb: 'The wood I have never once walked into.',
     tier: 'enchanted',
     count: 3,
     seed: 5500,
@@ -154,7 +170,7 @@ const CHAPTERS = [
     name: 'Nothing Stays',
     intents: ['bottleneck', 'detour', 'gauntlet'],
     terrain: 'ember',
-    blurb: 'It closes behind me near as fast as I can open it.',
+    blurb: 'Smoke on the wind. Their fires, close.',
     tier: 'vanishing',
     count: 3,
     seed: 5000,
@@ -181,6 +197,8 @@ function build() {
         intent,
         unlike: shapes,
         apart: MIN_SHAPE_DISTANCE,
+        // only the level a mechanic arrives on has to demonstrate it
+        teaches: i === 0 ? chapter.teaches ?? null : null,
       })
 
       totalRejected += level.rejected.length
@@ -200,7 +218,7 @@ function build() {
 
       const json = toJSON(level, name)
       json.chapter = chapter.name
-      json.blurb = chapter.blurb
+      json.blurb = chapter.blurb ?? null
       json.terrain = chapter.terrain
       levels.push(json)
 
@@ -208,6 +226,7 @@ function build() {
       report.push(
         `${name.padEnd(15)} ${String(level.intent).padEnd(10)} tries=${String(level.attempts).padStart(4)} ` +
         `${String(Date.now() - started).padStart(5)}ms route=${String(d.routeLength).padStart(3)} ` +
+        `${level.teaches ? `teaches=${level.teaches} ` : ''}` +
         `fork=${level.metrics.junctionRate.toFixed(2)} loop=${level.metrics.loopRate.toFixed(2)} ` +
         `spread=${String(level.metrics.maizeSpread).padStart(3)} choke=${String(level.metrics.chokepoints).padStart(2)} ` +
         `flags=${json.f.length} traps=${json.t.length} fog=${json.fog ?? '-'} ` +
