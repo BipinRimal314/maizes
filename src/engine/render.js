@@ -581,22 +581,60 @@ function drawFlash(ctx, game, cellSize) {
 }
 
 /**
+ * The tail behind the hat.
+ *
+ * Drawn under the ball and fading to nothing, so speed reads as speed. It also
+ * quietly does a job on the sand: the same input covers more ground there, and
+ * a longer smear is the cheapest possible way to show that.
+ */
+function drawTrail(ctx, game, cellSize) {
+  const trail = game.trail
+  if (!trail || trail.length < 2) return
+
+  const radius = game.ball.radius * cellSize
+  ctx.save()
+  ctx.fillStyle = COLORS.ball
+  for (let i = 0; i < trail.length; i++) {
+    const age = (i + 1) / trail.length      // 0 oldest, 1 newest
+    ctx.globalAlpha = age * 0.34
+    ctx.beginPath()
+    ctx.arc(trail[i].x * cellSize, trail[i].y * cellSize, radius * age * 0.8, 0, Math.PI * 2)
+    ctx.fill()
+  }
+  ctx.restore()
+}
+
+/**
  * One frame. Order matters: fog goes over the maze, and the hunter goes over
  * the fog — it is never hidden by it. Being unable to see the maze is the game;
  * being unable to see the thing chasing you is just noise.
+ *
+ * The whole frame is offset while `game.shake` is running down. It is applied
+ * here rather than to the canvas element so nothing in the page reflows — a
+ * transform on the DOM node would shove the layout around sixty times a second.
  */
 function drawScene(ctx, game, cellSize) {
+  const shaking = game.shake > 0
+  if (shaking) {
+    const force = (game.shake / 420) * cellSize * 0.22
+    ctx.save()
+    ctx.translate((Math.random() - 0.5) * force, (Math.random() - 0.5) * force)
+  }
+
   drawMaze(ctx, game, cellSize)
+  drawTrail(ctx, game, cellSize)
   drawBall(ctx, game.ball, cellSize)
   drawFog(ctx, game, cellSize)
   drawHunter(ctx, game, cellSize)
   drawWakeWarning(ctx, game, cellSize)
   drawFlash(ctx, game, cellSize)
+
+  if (shaking) ctx.restore()
 }
 
 export {
   COLORS, TERRAINS, SURFACE_TINTS, SURFACE_EDGES, terrainOf, drawSurfaces,
   WALL_WIDTH, MAIZE_SCALE, setupCanvas, ballDrawMetrics,
   loadMaize, maizeReady, setMaizeImage, drawMaizeIcon,
-  drawScene, drawMaze, drawBall, drawFog, drawHunter, drawWakeWarning,
+  drawScene, drawMaze, drawBall, drawTrail, drawFog, drawHunter, drawWakeWarning,
 }

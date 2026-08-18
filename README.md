@@ -474,6 +474,39 @@ service role key, which never leaves your machine. `.env.local` is gitignored.
 A failed send is queued in localStorage and retried on the next load; a failed
 queue write is swallowed. Telemetry may cost a row, never a frame.
 
+## Sound, and feel
+
+Everything is procedural — an oscillator or a filtered noise buffer. No assets.
+
+**Footfalls carry the ground.** Sand and snow already change the physics, so
+making them change the footstep teaches the mechanic with nothing written down:
+you hear the drag before you have finished wondering why the corner came up
+wrong. Sand is bright and dry, ordinary earth is a dull thud, snow is quieter
+and lower, and the three are deliberately far apart in brightness. A footfall
+fires once per cell crossed, never per frame — sixty a second is a buzz, not a
+walk.
+
+**The ghost is audible before it is visible.** A low layer under the ambience
+that swells as it closes, which gives the player the one thing a countdown
+cannot: which way to run. Pushed from the HUD tick rather than the frame loop,
+because it is ramped anyway and audio has no business on the hot path.
+
+**Each terrain has its own air** — a filtered wind bed and a drone, quiet enough
+to be noticed only when it changes, which is once a chapter.
+
+The one-shots are fire-and-forget. Those three are a small persistent graph, and
+`stopAmbience` on unmount is not housekeeping — a leaked looping node plays
+until the tab is closed.
+
+Two pieces of feel:
+
+- **A tail behind the hat**, sampled every few steps rather than every one; at
+  full rate it is a solid line, which reads as a smear instead of movement. It
+  quietly does a job on the sand too, where the same input covers more ground.
+- **A jolt when it goes wrong**, applied to the canvas transform rather than to
+  the DOM node — a transform on the element would reflow the page sixty times a
+  second. Losing the level shakes harder than losing the walk back.
+
 ## Layout
 
 ```

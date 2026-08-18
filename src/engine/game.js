@@ -32,10 +32,11 @@
  */
 
 import { createBall, resetBall, stepBall, ballCell } from './physics.js'
-import { key, trapSet, flagSet } from './grid.js'
+import { key, trapSet, flagSet, surfaceAt } from './grid.js'
 import { createHunter, sleepHunter, stepHunter } from './hunter.js'
 
 const STEP_MS = 1000 / 60
+const TRAIL_LENGTH = 14
 const RESPAWN_FLASH_MS = 450
 const CAPTURE_FLASH_MS = 700
 
@@ -102,10 +103,14 @@ function createGame(grid) {
 
     // transient presentation state, read by the renderer
     flash: null,         // { x, y, until, kind: 'trap' | 'flag' }
+    shake: 0,            // ms of screen shake left, set when something goes wrong
+    trail: [],           // recent ball positions, oldest first
+    cell: null,          // the cell the ball was in last step, for footfalls
     quip: '',
 
     onDeath: null,
     onCapture: null,
+    onStep: null,
     onWin: null,
     onLose: null,
     onSound: null,
@@ -119,6 +124,7 @@ function emit(game, sound) {
 /** A trap. Costs the walk back and nothing else — picked maize is never lost. */
 function die(game, at) {
   game.deaths += 1
+  game.shake = 240
   resetBall(game.ball, game.grid)
   // back at the start, so the hunter loses interest and its clock restarts
   sleepHunter(game.hunter, game.now)
@@ -138,6 +144,7 @@ function die(game, at) {
  */
 function lose(game, at) {
   game.lost = true
+  game.shake = 420
   game.flash = { x: at.x, y: at.y, until: game.now + RESPAWN_FLASH_MS, kind: 'trap' }
   game.quip = CAUGHT_QUIPS[(game.deaths + 1) % CAUGHT_QUIPS.length]
   emit(game, 'caught')
@@ -170,10 +177,28 @@ function stepGame(game) {
   if (game.won || game.lost || game.paused) return
 
   game.now += STEP_MS
+  if (game.shake > 0) game.shake = Math.max(0, game.shake - STEP_MS)
   stepBall(game.ball, game.input, game.grid)
+
+  /*
+   * A short tail behind the hat. Sampled every few steps rather than every one:
+   * at sixty a second a full-rate trail is a solid line, which reads as a smear
+   * and not as movement.
+   */
+  if (game.trail.length === 0 || game.now % 50 < STEP_MS) {
+    game.trail.push({ x: game.ball.x, y: game.ball.y })
+    if (game.trail.length > TRAIL_LENGTH) game.trail.shift()
+  }
 
   const cell = ballCell(game.ball)
   const id = key(cell.x, cell.y)
+
+  // a footfall each time the ball crosses into a new cell, carrying whatever
+  // ground it landed on — which is how sand and snow announce themselves
+  if (!game.cell || game.cell.x !== cell.x || game.cell.y !== cell.y) {
+    game.cell = cell
+    if (game.onStep) game.onStep(surfaceAt(game.grid, cell.x, cell.y))
+  }
 
   if (game.traps.has(id)) {
     die(game, cell)
@@ -220,6 +245,9 @@ function restartGame(game) {
   game.visited.clear()
   game.visited.set(key(game.grid.start.x, game.grid.start.y), 0)
   game.flash = null
+  game.shake = 0
+  game.trail = []
+  game.cell = null
   game.quip = ''
 }
 
@@ -247,6 +275,7 @@ function snapshot(game) {
 
 export {
   STEP_MS,
+  TRAIL_LENGTH,
   DEATH_QUIPS,
   CAUGHT_QUIPS,
   createGame,

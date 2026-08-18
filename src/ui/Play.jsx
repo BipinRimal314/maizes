@@ -1,7 +1,10 @@
 import { useRef, useState, useCallback, useEffect } from 'react'
 import { createGame, restartGame } from '../engine/game.js'
 import { recordWin, parFor, speedrunActive } from './progress.js'
-import { playSound, isMuted, toggleMuted } from '../engine/sound.js'
+import {
+  playSound, isMuted, toggleMuted, playStep,
+  startAmbience, stopAmbience, setHunterProximity,
+} from '../engine/sound.js'
 import { record } from './telemetry.js'
 import { whisperFor } from './story.js'
 import { useCellSize } from './useCellSize.js'
@@ -42,6 +45,7 @@ function Play({ level, index, total, isLast = false, onBack, onNext }) {
   if (gameRef.current === null) {
     const game = createGame(level.grid)
     game.onSound = playSound
+    game.onStep = playStep
     game.onWin = () => {
       wonRef.current = true
       recordWin(level.name, { deaths: game.deaths, ms: game.now })
@@ -127,6 +131,29 @@ function Play({ level, index, total, isLast = false, onBack, onNext }) {
   const onToggleSound = useCallback(() => { setMuted(toggleMuted()) }, [])
 
   useGameInput(game, boardRef, { onRestart: restart, onTogglePause: togglePause, onBack })
+
+  /*
+   * The air of this terrain, and the ghost's layer under it.
+   *
+   * Torn down on unmount without exception: these are looping nodes, and one
+   * left running plays until the tab is closed. The proximity is pushed from
+   * the HUD tick rather than the frame loop — ten times a second is plenty for
+   * something that is ramped anyway, and it keeps audio off the hot path.
+   */
+  useEffect(() => {
+    startAmbience(level.terrain)
+    return () => stopAmbience()
+  }, [level.terrain, muted])
+
+  useEffect(() => {
+    if (!game.hunter?.active) {
+      setHunterProximity(0)
+      return
+    }
+    const span = Math.hypot(game.grid.cols, game.grid.rows)
+    const gap = Math.hypot(game.hunter.x - game.ball.x, game.hunter.y - game.ball.y)
+    setHunterProximity(1 - Math.min(1, gap / (span * 0.6)))
+  }, [game, hud.now, hud.hunterAwake])
 
   useEffect(() => {
     const onHide = () => {
