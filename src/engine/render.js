@@ -1,3 +1,4 @@
+import { drawLandmarks } from './landmarks.js'
 /**
  * Canvas rendering. The only module that thinks in pixels.
  *
@@ -40,6 +41,8 @@ const COLORS = {
   hatRim: 'rgba(255, 240, 190, 0.9)',
   hatGlow: 'rgba(255, 210, 63, 0.85)',
   trapFlash: '#ff5347',
+  trapWash: 'rgba(255, 83, 71, 0.18)',   // dev overlay only
+
   captureFlash: '#ffc53d',
   hunter: '#f2f0ff',
   hunterEye: '#241426',
@@ -107,7 +110,7 @@ const SURFACE_TINTS = {
   [SNOW]: 'rgba(150, 200, 240, 0.18)',
 }
 
-/** The same colours at full strength, for the outline. */
+/** Texture colours distinguish ground from solid collision walls. */
 const SURFACE_EDGES = {
   [SAND]: 'rgba(245, 190, 95, 0.75)',
   [SNOW]: 'rgba(160, 215, 255, 0.75)',
@@ -115,48 +118,23 @@ const SURFACE_EDGES = {
 
 function drawSurfaces(ctx, grid, cellSize) {
   if (!grid.surface) return
-
-  const at = (x, y) =>
-    (x < 0 || y < 0 || x >= grid.cols || y >= grid.rows) ? 0 : grid.surface[y * grid.cols + x]
-
-  for (const kind of [SAND, SNOW]) {
-    const tint = SURFACE_TINTS[kind]
-    let any = false
-
-    for (let y = 0; y < grid.rows; y++) {
-      for (let x = 0; x < grid.cols; x++) {
-        if (at(x, y) !== kind) continue
-        any = true
-        ctx.fillStyle = tint
-        ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize)
+  // Texture stays inside each tile. A continuous patch outline looks like a
+  // collision wall, even though the player can cross it freely.
+  for (let y = 0; y < grid.rows; y++) {
+    for (let x = 0; x < grid.cols; x++) {
+      const kind = grid.surface[y * grid.cols + x]
+      if (!SURFACE_TINTS[kind]) continue
+      const px = x * cellSize
+      const py = y * cellSize
+      ctx.fillStyle = SURFACE_TINTS[kind]
+      ctx.fillRect(px, py, cellSize, cellSize)
+      ctx.fillStyle = SURFACE_EDGES[kind]
+      const grain = Math.max(1, cellSize * 0.025)
+      for (const [dx, dy] of [[0.25, 0.3], [0.7, 0.5], [0.4, 0.75]]) {
+        ctx.fillRect(px + dx * cellSize, py + dy * cellSize,
+          grain * (kind === SAND ? 2 : 1), grain)
       }
     }
-    if (!any) continue
-
-    /*
-     * Outline the patch, not each cell.
-     *
-     * A flat tint was legible on an empty board and stopped being so once the
-     * late chapters put fog, a hunter and a rotting trail on top of it — and a
-     * patch whose edge you cannot see is a physics change you cannot plan for.
-     * Only the boundary is stroked, so the inside stays clean and the shape
-     * reads as one place rather than a grid of tinted squares.
-     */
-    ctx.strokeStyle = SURFACE_EDGES[kind]
-    ctx.lineWidth = Math.max(1, cellSize * 0.045)
-    ctx.beginPath()
-    for (let y = 0; y < grid.rows; y++) {
-      for (let x = 0; x < grid.cols; x++) {
-        if (at(x, y) !== kind) continue
-        const px = x * cellSize
-        const py = y * cellSize
-        if (at(x, y - 1) !== kind) { ctx.moveTo(px, py); ctx.lineTo(px + cellSize, py) }
-        if (at(x, y + 1) !== kind) { ctx.moveTo(px, py + cellSize); ctx.lineTo(px + cellSize, py + cellSize) }
-        if (at(x - 1, y) !== kind) { ctx.moveTo(px, py); ctx.lineTo(px, py + cellSize) }
-        if (at(x + 1, y) !== kind) { ctx.moveTo(px + cellSize, py); ctx.lineTo(px + cellSize, py + cellSize) }
-      }
-    }
-    ctx.stroke()
   }
 }
 
@@ -754,7 +732,7 @@ function buildSight(width, height, grid, lightX, lightY, radius) {
  */
 function drawFog(ctx, game, cellSize) {
   const { grid, ball } = game
-  if (grid.fog === null) return
+  if (grid.fog === null || game.dev) return
 
   const width = grid.cols * cellSize
   const height = grid.rows * cellSize
@@ -1062,6 +1040,113 @@ function drawTrail(ctx, game, cellSize) {
  * here rather than to the canvas element so nothing in the page reflows — a
  * transform on the DOM node would shove the layout around sixty times a second.
  */
+/**
+ * Dev overlay: the two things a field deliberately hides.
+ *
+ * Traps are invisible by design and maize sits under the fog, which is the
+ * whole tension of a walk — and precisely what makes a field impossible to
+ * *tune* by playing it, since the designer is denied the same information as
+ * the player. This puts both back.
+ *
+ * Drawn after `drawFog`, which is the entire trick: the overlay punches through
+ * the dark rather than the fog needing to know anything about it.
+ *
+ * Gated on `game.dev`, set once from `isDevMode()` in Play — the engine does
+ * not read the flag itself, because nothing in `engine/` imports from `ui/`.
+ */
+function drawDevOverlay(ctx, game, cellSize) {
+  if (!game.dev) return
+  const { grid } = game
+
+  ctx.save()
+
+  // traps: the tile is washed and then crossed. The wash reads at a glance on a
+  // scrolling board, the cross survives being small on a 38-wide one.
+  ctx.lineCap = 'round'
+  ctx.lineWidth = Math.max(1.5, cellSize * 0.07)
+  for (const trap of grid.traps) {
+    const px = trap.x * cellSize
+    const py = trap.y * cellSize
+    const inset = cellSize * 0.24
+    ctx.fillStyle = COLORS.trapWash
+    ctx.fillRect(px, py, cellSize, cellSize)
+    ctx.strokeStyle = COLORS.trapFlash
+    ctx.beginPath()
+    ctx.moveTo(px + inset, py + inset)
+    ctx.lineTo(px + cellSize - inset, py + cellSize - inset)
+    ctx.moveTo(px + cellSize - inset, py + inset)
+    ctx.lineTo(px + inset, py + cellSize - inset)
+    ctx.stroke()
+  }
+
+  // Remaining maize gets a subtle highlight in the full-map debug view.
+  ctx.globalAlpha = 0.55
+  for (const flag of grid.flags) {
+    if (game.captured.has(key(flag.x, flag.y))) continue
+    drawMaizeIcon(ctx, flag.x, flag.y, cellSize, game.now)
+  }
+
+  ctx.restore()
+}
+
+/** Tools and timber share the board's cell coordinates and collision map. */
+function drawTools(ctx, game, cellSize) {
+  const s = cellSize
+  ctx.save()
+  for (const id of game.wood ?? []) {
+    const [x, y] = id.split(',').map(Number)
+    const px = x * s, py = y * s
+    for (let plank = 0; plank < 3; plank++) {
+      ctx.fillStyle = plank % 2 ? '#845a31' : '#a07740'
+      ctx.fillRect(px + s * .08, py + s * (.1 + plank * .27), s * .84, s * .23)
+      ctx.fillStyle = '#d1ab70'
+      ctx.fillRect(px + s * .17, py + s * (.16 + plank * .27), s * .025, s * .025)
+      ctx.fillRect(px + s * .79, py + s * (.16 + plank * .27), s * .025, s * .025)
+    }
+    if (game.chopping?.id === id) {
+      ctx.fillStyle = '#f4dc8f'
+      ctx.fillRect(px + s * .1, py + s * .88, s * .8 * Math.min(1, game.chopping.ms / 450), s * .045)
+    }
+  }
+  const tool = (at, kind) => {
+    if (!at) return
+    const x = (at.x + .5) * s, y = (at.y + .5) * s
+    ctx.save()
+    ctx.translate(x, y)
+    ctx.shadowColor = kind === 'axe' ? '#e9c98d' : '#a2e7d8'
+    ctx.shadowBlur = s * .2
+    ctx.lineWidth = Math.max(2, s * .06)
+    ctx.strokeStyle = kind === 'axe' ? '#ddbd80' : '#a2e7d8'
+    ctx.beginPath()
+    if (kind === 'axe') {
+      ctx.moveTo(-s * .2, s * .28)
+      ctx.lineTo(s * .12, -s * .24)
+      ctx.stroke()
+      ctx.fillStyle = '#e5ece0'
+      ctx.beginPath()
+      ctx.moveTo(-s * .04, -s * .21)
+      ctx.lineTo(s * .29, -s * .31)
+      ctx.lineTo(s * .31, -s * .02)
+      ctx.lineTo(s * .1, -.08 * s)
+      ctx.closePath()
+      ctx.fill()
+    } else {
+      ctx.moveTo(0, -s * .3)
+      ctx.lineTo(s * .23, 0)
+      ctx.lineTo(0, s * .3)
+      ctx.lineTo(-s * .23, 0)
+      ctx.closePath()
+      ctx.stroke()
+      ctx.fillStyle = '#c4f5e9'
+      ctx.fillRect(-s * .035, -s * .09, s * .07, s * .18)
+    }
+    ctx.restore()
+  }
+  if (!game.hasAxe) tool(game.grid.axe, 'axe')
+  if (!game.charmPicked) tool(game.grid.charm, 'ward')
+  ctx.restore()
+}
+
 function drawScene(ctx, game, cellSize) {
   const shaking = game.shake > 0
   const camera = game.camera
@@ -1081,6 +1166,8 @@ function drawScene(ctx, game, cellSize) {
   }
 
   drawMaze(ctx, game, cellSize)
+  drawLandmarks(ctx, game, cellSize)
+  drawTools(ctx, game, cellSize)
   drawFxUnder(ctx, game, cellSize)
   drawTrail(ctx, game, cellSize)
   if (game.won) {
@@ -1091,6 +1178,7 @@ function drawScene(ctx, game, cellSize) {
     drawBall(ctx, game.ball, cellSize, hatPose(game))
   }
   drawFog(ctx, game, cellSize)
+  drawDevOverlay(ctx, game, cellSize)
   drawHunter(ctx, game, cellSize)
   drawWakeWarning(ctx, game, cellSize)
   drawFlash(ctx, game, cellSize)
@@ -1106,5 +1194,5 @@ export {
   WALL_WIDTH, MAIZE_SCALE, LANTERN_REACH, OUTRO_MS, setupCanvas, ballDrawMetrics,
   drawMaizeIcon, hatPose,
   drawScene, drawMaze, drawBall, drawTrail, drawFog, drawHunter, drawWakeWarning,
-  drawFxUnder, drawFxOver, drawOutro, drawStick,
+  drawFxUnder, drawFxOver, drawOutro, drawStick, drawDevOverlay,
 }

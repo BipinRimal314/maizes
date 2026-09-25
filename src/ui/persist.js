@@ -16,6 +16,7 @@
  */
 
 const SAVE_FILE = 'save.json'
+const saveFile = (key) => key === 'maizes:journey-v2' ? 'save-journey-v2.json' : SAVE_FILE
 const FLUSH_MS = 400
 
 /** Tauri v2 puts this on the window; nothing else does. */
@@ -50,9 +51,9 @@ async function loadSave(key) {
   backend = 'desktop'
   try {
     const { readTextFile, exists, BaseDirectory } = await import('@tauri-apps/plugin-fs')
-    const there = await exists(SAVE_FILE, { baseDir: BaseDirectory.AppData })
+    const there = await exists(saveFile(key), { baseDir: BaseDirectory.AppData })
     if (!there) return null
-    const raw = await readTextFile(SAVE_FILE, { baseDir: BaseDirectory.AppData })
+    const raw = await readTextFile(saveFile(key), { baseDir: BaseDirectory.AppData })
     return raw ? JSON.parse(raw) : null
   } catch {
     return null
@@ -75,7 +76,7 @@ async function flush(key) {
     if (!(await exists('', { baseDir: BaseDirectory.AppData }))) {
       await mkdir('', { baseDir: BaseDirectory.AppData, recursive: true })
     }
-    await writeTextFile(SAVE_FILE, JSON.stringify(snapshot), { baseDir: BaseDirectory.AppData })
+    await writeTextFile(saveFile(key), JSON.stringify(snapshot), { baseDir: BaseDirectory.AppData })
   } catch { /* a save that cannot be written must not take the game down */ }
 }
 

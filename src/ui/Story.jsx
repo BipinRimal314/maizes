@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import maizeUrl from '../assets/maize.png'
 import TrailMap from './TrailMap.jsx'
+import Landscape from './Landscape.jsx'
 import { useTypewriter } from './useTypewriter.js'
 
 /**
@@ -39,9 +40,14 @@ function Story({ beat, maize = null, trail = null, onDone, actionLabel }) {
   }, [done, skip])
 
   return (
-    <div className="result">
+    <main className="result story-scene">
+      <aside className="story-scene__art">
+        <Landscape />
+        <div className="story-scene__brand"><span className="eyebrow">A trail worth following</span><span>Journey to<br /><em>Maizy.</em></span></div>
+      </aside>
       <div className="card card--story">
-        {beat.title && <h2 className="story__title">{beat.title}</h2>}
+        <span className="eyebrow">{beat.id === 'prologue' ? 'Before the first step' : 'Along the trail'}</span>
+        <h2 className="story__title">{beat.title || 'A little further.'}</h2>
 
         <div className="story__lines">
           {beat.lines.map((line, i) => (
@@ -74,11 +80,11 @@ function Story({ beat, maize = null, trail = null, onDone, actionLabel }) {
             className={`btn btn--primary${done ? '' : ' is-waiting'}`}
             onClick={done ? onDone : skip}
           >
-            {done ? (actionLabel ?? beat.action ?? 'go on') : 'skip'}
+            {done ? (actionLabel ?? beat.action ?? 'go on') : 'Read now'}<span aria-hidden="true"> ↗</span>
           </button>
         </div>
       </div>
-    </div>
+    </main>
   )
 }
 

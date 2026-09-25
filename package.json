@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "npm run levels && vite build",
+    "build": "npm run campaign && vite build",
     "preview": "vite preview",
     "levels": "node src/scripts/buildLevels.js",
     "lint": "eslint .",
@@ -17,15 +17,20 @@
     "desktop": "tauri dev",
     "desktop:build": "tauri build",
     "shots": "node --import ./src/scripts/assetLoader.js src/scripts/shots.js",
-    "stats": "node src/scripts/stats.js"
+    "stats": "node src/scripts/stats.js",
+    "traces": "node src/scripts/traces.js",
+    "campaign": "node src/scripts/buildCampaign.js"
   },
   "dependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/core": "^8.5.2",
     "@tauri-apps/api": "^2.11.1",
     "@tauri-apps/plugin-fs": "^2.5.1",
     "react": "^19.2.4",
     "react-dom": "^19.2.4"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.5.2",
     "@eslint/js": "^9.39.4",
     "@napi-rs/canvas": "^1.0.8",
     "@tauri-apps/cli": "^2.11.4",

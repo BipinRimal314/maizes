@@ -22,10 +22,8 @@
  *
  * TWO VOICES
  *
- *   n('...')  the farmer. Present tense, flat, and consistently not finishing
- *             the sentence that matters.
- *   v('...')  the voices — overheard, remembered, or not really there. They say
- *             the part he skips.
+ *   n('...')  the farmer. Present tense, plain language, concrete observations.
+ *   v('...')  the voices — overheard or remembered fragments of other people.
  *
  * The reveal happens in the gap between them, so if you add a line, it belongs
  * to one of those two and not to a narrator explaining things.
@@ -43,11 +41,11 @@ const PROLOGUE = {
   id: 'prologue',
   title: 'Dusk',
   lines: [
-    n('There is corn on the ground that should be on the stalk.'),
-    n('I am picking it up.'),
+    n("Someone has broken the gate. Corn lies scattered across the field."),
+    n("I pick up an ear, then spot another by the hedge."),
     v('papa'),
-    n('That is all I am doing.'),
-    n('The light is going. I put my hat on. It is what I do when I am going to be a while.'),
+    n("The trail carries on through the gap."),
+    n("I put on my old yellow hat and follow it before the light goes."),
   ],
   action: 'pick it up',
 }
@@ -61,22 +59,22 @@ const CHAPTER_BEATS = {
   'Warm Up': {
     id: 'ch-warm-up',
     lines: [
-      n('Three rows cleared, and the ground keeps dropping them ahead of me.'),
-      n('Corn does not walk. I know that much.'),
+      n("Three rows cleared. There is more corn beyond the fence."),
+      n("Two ears at the turn. We used to mark our way home like that."),
       v('…she’s still got a whole armful…'),
       v('…three rows. that’s the lot of it.'),
-      n('I did not hear that.'),
+      n("I stop to listen, but the voices have moved on."),
     ],
   },
 
   'Two Trips': {
     id: 'ch-two-trips',
     lines: [
-      n('Further out than my land goes, now. I have not stopped to think about that.'),
+      n("I reach the edge of my land. The trail keeps going."),
       v('…leave the sacks. take the girl.'),
       v('…three carts. we go when we go.'),
-      n('I am gathering what fell. That is all this is.'),
-      n('I did not ask when. I did not want the answer, so I did not ask.'),
+      n("They came for the harvest. Why did they take her?"),
+      n("I should be able to hear their carts from here."),
       v('…i’m dropping them where you’ll look, papa…'),
     ],
   },
@@ -84,10 +82,10 @@ const CHAPTER_BEATS = {
   'First Light': {
     id: 'ch-first-light',
     lines: [
-      n('The light went. I have walked this ground my whole life and I cannot find it in the dark.'),
+      n("It is dark now. I feel along the hedge for a gap."),
       n('The corn is easier to find than the path.'),
       v('…one every twenty steps. she’ll be out before the ridge…'),
-      n('Someone has thought about this more carefully than I have.'),
+      n("I taught her to leave a mark before a turn. She has remembered."),
     ],
   },
 
@@ -95,11 +93,11 @@ const CHAPTER_BEATS = {
     id: 'ch-the-fog',
     lines: [
       n('I can see about as far as my own arm.'),
-      n('Every time I reach the place the next one should be, it is there.'),
+      n("I nearly step on the next ear. She has left it in the middle of the path."),
       v('maizy. sit down.'),
       v('…papa i’m here i’m here i’m—'),
       n('Maizy.'),
-      n('I have not said her name out loud since the field.'),
+      n("She always answers when I call across the field. I wait without meaning to."),
     ],
   },
 
@@ -112,19 +110,19 @@ const CHAPTER_BEATS = {
   'Company': {
     id: 'ch-company',
     lines: [
-      n('Something has walked behind me for an hour. It never closes. It never needs to.'),
+      n("I hear footsteps behind me. When I stop, they stop."),
       v('…there’s nothing behind you, papa…'),
       v('…there’s nothing behind him.'),
-      n('I did not look back. I kept my eyes on the small yellow thing going on ahead of me in the dark — the one you have been steering this whole time.'),
-      n('It is my hat. I have not taken it off since the field.'),
-      n('It is the only part of me that has kept going in a straight line.'),
+      n("From up there, you can barely see me. Just a yellow circle moving through the dark."),
+      n("That is my hat. You have been guiding me beneath it all this way."),
+      n("Keep me on the path. I cannot see where to put my feet."),
     ],
   },
 
   'No Mercy': {
     id: 'ch-no-mercy',
     lines: [
-      n('Fires. Smoke, and voices in it, and this time they are outside my head.'),
+      n("Firelight on the ridge. I crouch behind the wall and listen."),
       v('three carts. she goes on the first.'),
       v('…she’s stopped dropping them.'),
       v('good. that’s eleven miles of them wasted.'),
@@ -135,19 +133,19 @@ const CHAPTER_BEATS = {
   'The Dry Reach': {
     id: 'ch-dry-reach',
     lines: [
-      n('Out of the wet and onto flat hard ground that runs further than I can see.'),
-      n('It throws you along. Twice now I have been running without having decided to.'),
+      n("The ground is dry here. There is no shelter from the wind."),
+      n("A gust catches me sideways. I have to lean into it to stay on the path."),
       v('two days he’s been walking. two.'),
       v('…he’ll be across the reach by dark.'),
-      n('They talk about me the way you talk about weather.'),
+      n("They know I am following."),
     ],
   },
 
   'The White Mile': {
     id: 'ch-white-mile',
     lines: [
-      n('Snow, and enough of it to wade rather than walk.'),
-      n('Every step out here costs three of the ones behind it.'),
+      n("Snow covers the path. My boots keep slipping."),
+      n("I take smaller steps near the edge."),
       v('a mile and a half of this. she’ll not walk it twice.'),
       v('…she wasn’t dressed for this…'),
       n('I have her shawl inside my coat. I have had it since the field.'),
@@ -159,7 +157,7 @@ const CHAPTER_BEATS = {
   'Forgetting': {
     id: 'ch-forgetting',
     lines: [
-      n('Two days awake. The ground closes behind me as fast as I open it.'),
+      n("I have barely slept. I keep losing track of turns I just took."),
       n('I could not find my way home now if I turned around.'),
       v('…how long has he been out there?'),
       v('…papa. wrong way. wrong—'),
@@ -170,13 +168,13 @@ const CHAPTER_BEATS = {
   'The Lit Wood': {
     id: 'ch-lit-wood',
     lines: [
-      n('There is no moon under those trees and I could still see my hands.'),
-      n('The wood gives off its own light. Green, and cold, and coming from the trunks rather than falling on them.'),
+      n("Something flickers between the trees."),
+      n("Fireflies. In their light, I can just make out the corn."),
       v('…don’t eat anything in there…'),
-      v('…he won’t. he’s not hungry, he’s a father.'),
+      v("…keep moving. he’s getting closer."),
       v('…papa…'),
-      n('I have farmed beside this wood my whole life and never once walked into it.'),
-      n('Her trail goes in.'),
+      n("She wanted to show me these lights last summer. I told her we had work to do."),
+      n("At the roots, two ears point into the wood. All right, Maizy. Show me."),
     ],
   },
 }
@@ -186,20 +184,20 @@ const CHAPTER_BEATS = {
 CHAPTER_BEATS['Nothing Stays'] = {
   id: 'ch-nothing-stays',
   lines: [
-    n('Smoke, and their fires, and then the fires are behind me and the trail is still going.'),
+    n("Ash and wheel ruts. I check each fire, but they are all cold."),
     n('It was not the camp. It was where they stopped for a night.'),
     v('…'),
-    n('The fields out here are bigger than any I have walked. Bigger than any I own.'),
+    n("On the far side of the camp, I find another ear."),
   ],
 }
 
 CHAPTER_BEATS['The Long Dark'] = {
   id: 'ch-long-dark',
   lines: [
-    n('I have stopped counting the ears. I pick them up and I do not count.'),
-    n('There is no edge to this ground. I walk until the walls stop and they do not stop.'),
+    n("The sack is heavy. I shift it to my other shoulder."),
+    n("I follow the wall until my hand is scraped raw."),
     v('…papa…'),
-    n('Further off than it was. Or I am slower. One of the two.'),
+    n("I stop to listen. Nothing. I keep walking."),
   ],
 }
 
@@ -208,48 +206,40 @@ const BARGAIN = {
   id: 'bargain',
   title: 'The camp',
   lines: [
-    n('The end of the trail, and their fires at the end of it.'),
-    n('Every ear she dropped, gathered up and carried the whole way.'),
-    n('The big one comes out to meet me. He does not reach for anything, which frightens me more than if he had.'),
+    n("The trail ends at a camp. A man stands beside the fire."),
+    n("I set the sack at his feet. Everything she left me is in there."),
+    n("He opens it and looks inside."),
     n('"All of it," I tell him. "Every last one. For my daughter."'),
     v('—'),
-    n('Nothing. For the first time in three days, nothing at all.'),
+    n("I wait for him to bring her out."),
   ],
   action: 'hand it over',
 }
 
-/**
- * The twist, and the first time the game says the word "late".
- *
- * Act one never names an hour. The carts are mentioned, the counting is heard,
- * the clock on the level list has been ticking the whole time — but nobody
- * tells him when they leave, because he does not ask. This is where he finds
- * out, and where the player finds out that the number they have been looking
- * at was the one that mattered. Act two is what he does about it.
- */
+/** The bargain fails, but fresh tracks give the pursuit a concrete destination. */
 const TOO_LATE = {
   id: 'too-late',
   title: 'Too late',
   lines: [
-    n('He counts it. Of course he does. He has been counting the whole way — I have been hearing him count since the ridge.'),
-    n('Then he counts it again, slower, watching me the whole time. Then he smiles.'),
+    n("He counts the corn into a sack of his own. I recognise his voice from the ridge."),
+    n("He ties the sack shut. Then he looks at me."),
     v('"First light, farmer. The first cart went at first light."'),
-    v('"You never asked when. You walked it like a man with a night to spare."'),
-    n('I never asked. I have been walking with the whole night in my pocket and she went at first light.'),
-    n('Not fast enough. That is the whole of it.'),
+    v("\"You’re too late. She’s gone.\""),
+    n("Beyond the fire, fresh wheel tracks lead out of camp."),
+    n("I leave the corn with him and follow the tracks."),
   ],
-  action: 'go back. be faster.',
+  action: "follow the cart",
 }
 
 const SPEEDRUN_BRIEF = {
   id: 'speedrun-brief',
   title: 'Faster, then',
   lines: [
-    n('Not all of it again. There is no night left for all of it again.'),
-    n('The worst field of every stretch, in the dark, with the thing that follows and the ground that closes — and each one quicker than I walked it the first time.'),
-    n('That is the whole of it. Thirteen fields and a night.'),
+    n("The road bends around the fields I crossed. I can cut through and catch the cart."),
+    n("Thirteen fields. I need to beat my first time in each one."),
+    n("I know the turns now. Help me get through them."),
     v('papa'),
-    n('Ahead of me, this time.'),
+    n("I can still reach her."),
   ],
   action: 'run',
 }
@@ -258,8 +248,8 @@ const ENDING = {
   id: 'ending',
   title: 'Maizy',
   lines: [
-    n('The cart was slower than he said. They always are.'),
-    n('She hears me before she sees me. She says it was the hat — that she would know it anywhere, going on ahead in the dark.'),
+    n("I reach the road as the cart comes around the bend."),
+    n("She spots my yellow hat and calls out. When I reach her, she asks if I found her marks."),
     v('papa.'),
     n('Thank you for helping me reach my daughter.'),
   ],
@@ -280,12 +270,12 @@ const LOST_HER = {
   id: 'lost-her',
   title: 'The road back',
   lines: [
-    n('There is a point where a man stops walking, and I would rather tell you I reached it than pretend I did not.'),
+    n("I sit down beside the road. I cannot make myself get up."),
     n('The carts went on. I did not.'),
     v('…'),
-    n('I go home in the morning and the field is still there, and the gate, and the gap in the hedge where they came through.'),
+    n("By morning I am home. The gate is still broken."),
     n('I keep her shawl in my coat.'),
-    n('Thank you for walking it with me. I am sorry it was not far enough.'),
+    n("I should have kept going."),
   ],
   action: 'levels',
 }
@@ -298,47 +288,42 @@ const LOST_HER = {
  * right way to deliver a thing that is supposed to feel half-heard — and it
  * puts a hint inside the game rather than only between the levels of it.
  *
- * Keyed by level name, at most one per level, and deliberately sparse: twelve
- * across twenty-six levels, so hearing one stays an event.
+ * Keyed by level name, at most one per level, with gaps between appearances.
  */
 const WHISPERS = {
-  'Warm Up 2': '…where did she go…',
+  'Warm Up 3': '…where did she go…',
   'Two Trips 1': '…they came up the west track…',
   'Two Trips 2': '…he’s coming. of course he’s coming…',
-  'First Light 2': '…count them. count them, papa…',
-  'The Fog 1': '…she’s still dropping them…',
-  'Company 2': '…don’t look back…',
+  'First Light 3': '…count them. count them, papa…',
+  'The Fog 2': '…she’s still dropping them…',
+  'Company 3': '…don’t look back…',
   'No Mercy 2': '…she goes on the first cart…',
   'Forgetting 2': '…he’s still out there?…',
   'The Dry Reach 2': '…faster here. careful…',
   'The White Mile 2': '…she left the path…',
-  'The Lit Wood 2': '…the lights aren’t trees…',
-  'Nothing Stays 2': '…almost, papa…',
-  'The Long Dark 1': '…it goes on and on out here…',
+  'The Lit Wood 2': "…remember the lights, papa?…",
+  'Nothing Stays 3': '…almost, papa…',
+  'The Long Dark 2': '…it goes on and on out here…',
   'The Fires 2': '…papa. i can see you…',
 }
 
 
 // ------------------------------------------------------- what he says out loud
 
-/*
- * A tired dad swearing the way a tired dad swears: mild, agricultural, faintly
- * ridiculous, and every one of them turning back toward her before the line is
- * out. An oath, then the worry underneath it.
- */
+/* Short reactions to a fall. Avoid jokes that undermine the search. */
 const DEATH_QUIPS = [
-  'Oh, barnacles. Down a hole, at my age.',
-  'Sweet mother of harvest. Mind your feet, old man.',
-  'Well, blister my boots. Up. She is still out there.',
-  'Great grieving gourds — who digs a pit in a field and leaves it open?',
-  'Tarnation. That is twice now. We need not tell her mother.',
-  'By the plough and all that pulls it. Again, then.',
-  'Heavens to Betsy. Nothing broken. Nothing that counts.',
-  "Corn's teeth. Forty years farming and never once fallen in a field.",
-  'Oh, thistles. Get up. Get up.',
-  'Sakes alive, the ground is against me now as well.',
-  'Jumping junebugs, that smarts. She would have laughed at that.',
-  'Blast and bother. Back to the start, and no nearer to her.',
+  "Didn’t see that hole.",
+  "Watch your feet.",
+  "All right. Back up.",
+  "Missed my footing.",
+  "Too close to the edge.",
+  "Try the other side.",
+  "Still in one piece.",
+  "Should have slowed down there.",
+  "Come on. Get up.",
+  "Careful on the next try.",
+  "That hurt.",
+  "Back to the start.",
 ]
 
 /*
@@ -346,45 +331,37 @@ const DEATH_QUIPS = [
  * knows what it cost; he does not make a joke of it.
  */
 const LOST_MAIZE_QUIPS = [
-  'Down a hole, and every ear back where it lay.',
-  'The ground has all of it again. Up.',
-  'All of them, back on the ground. From the start, then.',
-  'Every one of hers, dropped again. Get up.',
+  "Dropped the lot. I’ll have to collect it again.",
+  "Lost the corn. Back I go.",
+  "Empty sack. Start again.",
+  "I need to pick it all up again.",
 ]
 
 const CAUGHT_QUIPS = [
-  'Merciful heavens. It was right there beside me.',
-  'Sweet corn and salvation — it does not even hurry.',
-  'Oh, thistles. It has the measure of my hat now.',
-  'Land sakes. Faster, old man. Faster.',
-  'By the barn door, that thing is patient.',
-  'Bless and keep us. Do not let her see me like this.',
+  "It caught up.",
+  "I waited too long.",
+  "It found me again.",
+  "Keep moving.",
+  "I can hear it getting closer.",
+  "It cut me off.",
 ]
 
-/*
- * And what he says once the joke has gone out of him.
- *
- * Twelve oaths over a campaign is not twelve oaths per player — a field can
- * take five or six goes, and charm does not survive its third hearing. So the
- * oaths are for the first few falls in a field, and after that he stops being
- * funny about it, which is both the honest amount of writing and the more
- * truthful thing for a man two days into this to do.
- */
+/* Repeated falls shorten his reactions further. */
 const WEARY_QUIPS = [
   'Up.',
-  'Again. It is only ground.',
-  'I have stopped being funny about it.',
+  "Again.",
+  "Take a breath.",
   'Nothing broken. Up.',
-  'She is still out there. That is the whole of it.',
+  "She is still out there.",
   'Get up, old man. Get up.',
 ]
 
 /** Falls in one field before the oaths give out. */
 const QUIPS_BEFORE_WEARY = 4
 
-const PICKED_ONE = 'One more of hers. All the way back with it, then.'
-const PICKED_LAST = 'That is the last of them. The way on is open. Good girl.'
-const GHOST_WOKE = 'Something is up and about out there. It knows where I am.'
+const PICKED_ONE = "Another one. Back to the gate with it."
+const PICKED_LAST = "Got them all. The way out is open."
+const GHOST_WOKE = "Footsteps. Keep moving."
 
 export {
   n, v,

@@ -1,9 +1,12 @@
+import { lessonFor } from './lessons.js'
+import Difficulty from './Difficulty.jsx'
+import { DIFFICULTIES } from '../engine/difficulty.js'
 import { useRef, useState, useCallback, useEffect } from 'react'
 import { createGame, restartGame } from '../engine/game.js'
 import { assist, setAssist } from '../engine/assist.js'
-import { recordWin, parFor, speedrunActive } from './progress.js'
+import { hasSeen, markSeen, recordDiscovery, journalEntries, recordWin, parFor, speedrunActive } from './progress.js'
 import {
-  playSound, isMuted, toggleMuted, playStep, getVolume, setVolume,
+  playSound, unlockAudio, isMuted, toggleMuted, playStep, getVolume, setVolume,
   startAmbience, stopAmbience, setHunterProximity,
 } from '../engine/sound.js'
 import { record } from './telemetry.js'
@@ -12,6 +15,8 @@ import { useCellSize } from './useCellSize.js'
 import { useGameInput } from './useGameInput.js'
 import { useGamepad } from './useGamepad.js'
 import { useGameLoop } from './useGameLoop.js'
+import { isDevMode } from './devmode.js'
+import { starsFor, targetMs } from './rewards.js'
 import { OUTRO_MS } from '../engine/render.js'
 
 /**
@@ -22,6 +27,9 @@ import { OUTRO_MS } from '../engine/render.js'
  * knows the field does not wait for the title.
  */
 const INTRO_MS = 1300
+
+// Phones (and the Android build) have no keys to be told about; the desktop keeps the hints.
+const TOUCH = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches
 
 /* eslint-disable react-hooks/refs --
  * The game is an imperative engine instance, not render data. It is created
@@ -45,7 +53,7 @@ function clock(ms) {
  * on the card at the end of the field, where it reads as a story about the walk
  * instead of a score ticking up next to your hands.
  */
-function Play({ level, index, total, isLast = false, onBack, onNext }) {
+function Play({ level, index, total, isLast = false, onBack, onNext, difficulty = 'easy', onDifficulty }) {
   const canvasRef = useRef(null)
   const boardRef = useRef(null)
   const [result, setResult] = useState(null)
@@ -65,8 +73,9 @@ function Play({ level, index, total, isLast = false, onBack, onNext }) {
 
   const gameRef = useRef(null)
   if (gameRef.current === null) {
-    const game = createGame(level.grid, assist())
+    const game = createGame(level.grid, assist(), difficulty)
     game.onSound = playSound
+    game.onDiscovery = recordDiscovery
     game.onStep = playStep
     game.onWin = () => {
       wonRef.current = true
@@ -100,6 +109,9 @@ function Play({ level, index, total, isLast = false, onBack, onNext }) {
         restarts: restartsRef.current,
       })
     }
+    // read once per level, not per frame: a localStorage hit at 60fps is a
+    // silly thing to pay for a flag that cannot change mid-walk
+    game.dev = isDevMode()
     gameRef.current = game
   }
   const game = gameRef.current
@@ -108,6 +120,16 @@ function Play({ level, index, total, isLast = false, onBack, onNext }) {
   const hud = useGameLoop(game, canvasRef, view)
 
   const [muted, setMuted] = useState(isMuted)
+
+  useEffect(() => {
+    window.addEventListener('pointerdown', unlockAudio)
+    window.addEventListener('keydown', unlockAudio)
+    return () => {
+      window.removeEventListener('pointerdown', unlockAudio)
+      window.removeEventListener('keydown', unlockAudio)
+    }
+  }, [])
+
 
   /*
    * A fragment heard a few seconds into some levels.
@@ -137,10 +159,11 @@ function Play({ level, index, total, isLast = false, onBack, onNext }) {
    */
   const [paused, setPaused] = useState(false)
   const pausedRef = useRef(false)
+  const introRef = useRef(true)
 
   const pause = useCallback((next) => {
     if (game.won) return
-    game.paused = next
+    game.paused = next || introRef.current
     pausedRef.current = next
     if (next) game.input.up = game.input.down = game.input.left = game.input.right = false
     setPaused(next)
@@ -155,16 +178,24 @@ function Play({ level, index, total, isLast = false, onBack, onNext }) {
    * has not been opened in the meantime, so a player who pressed P during the
    * title is not quietly un-paused by it.
    */
+  const [lesson] = useState(() => {
+    const candidate = lessonFor(level)
+    if (!candidate) return null
+    const id = `${game.dev ? 'dev-' : ''}${candidate.id}`
+    return hasSeen(id) ? null : { ...candidate, id }
+  })
+  const hasLesson = Boolean(lesson)
   const [intro, setIntro] = useState(true)
-  const introRef = useRef(true)
   const endIntro = useCallback(() => {
     if (!introRef.current) return
     introRef.current = false
     setIntro(false)
+    if (lesson) markSeen(lesson.id)
     if (!pausedRef.current && !game.won && !game.lost) game.paused = false
-  }, [game])
+  }, [game, lesson])
 
   useEffect(() => {
+    if (hasLesson) return undefined
     const timer = setTimeout(endIntro, INTRO_MS)
     const onAnyInput = (e) => {
       if (e.type === 'keydown' && (e.metaKey || e.ctrlKey || e.altKey)) return
@@ -177,7 +208,7 @@ function Play({ level, index, total, isLast = false, onBack, onNext }) {
       window.removeEventListener('keydown', onAnyInput)
       window.removeEventListener('pointerdown', onAnyInput)
     }
-  }, [endIntro])
+  }, [endIntro, hasLesson])
 
   const restart = useCallback(() => {
     if (game.won) return
@@ -212,6 +243,7 @@ function Play({ level, index, total, isLast = false, onBack, onNext }) {
     // the bed is built with the volume baked into its gains, so it has to be
     // rebuilt to hear the change rather than only new one-shots picking it up
     startAmbience(level.terrain)
+    playSound('capture')
   }, [level.terrain])
 
   useGameInput(game, boardRef, { onRestart: restart, onTogglePause: togglePause, onBack })
@@ -279,11 +311,7 @@ function Play({ level, index, total, isLast = false, onBack, onNext }) {
     return (
       <div className="result">
         <div className="card">
-          <div className="card__emoji">
-            {racing
-              ? (saved ? '\u{1F3C3}' : '\u{23F1}')
-              : (result.deaths === 0 ? '\u{1F3C6}' : result.deaths < 6 ? '\u{1F389}' : '\u{1F605}')}
-          </div>
+          <span className="eyebrow">Field {index + 1} complete</span>
           <h2 className="card__title">
             {racing
               ? (saved ? 'Faster.' : 'Not fast enough.')
@@ -295,14 +323,19 @@ function Play({ level, index, total, isLast = false, onBack, onNext }) {
                 ? `${clock(result.par - result.ms)} to the good. Keep on.`
                 : `${clock(result.ms - result.par)} short. This field again, then.`)
               : (result.deaths === 0
-                ? 'Clean as a whistle. Do not let it go to your head.'
-                : 'Slow, and sore, and through all the same.')}
+                ? 'A clear path. On to the next field.'
+                : 'You found the way through. Keep following the trail.')}
           </p>
+          {!racing && <div className="result-rewards">
+            <p className="level-stars" aria-label={`${starsFor(level, result)} of 3 stars`}>{'★'.repeat(starsFor(level, result))}<span aria-hidden="true">{'☆'.repeat(3 - starsFor(level, result))}</span></p>
+            <p>Finish · No falls · {targetMs(level) ? `Under ${clock(targetMs(level))}` : 'Find your rhythm'}</p>
+            <p>One star opens the next field. The rest are yours to chase.</p>
+          </div>}
           <div className="card__stats">
             <div className="stat"><span className="stat__label">time</span><span className="stat__value">{clock(result.ms)}</span></div>
             {racing
               ? <div className="stat"><span className="stat__label">to beat</span><span className="stat__value">{clock(result.par)}</span></div>
-              : <div className="stat"><span className="stat__label">deaths</span><span className="stat__value">{result.deaths}</span></div>}
+              : <div className="stat"><span className="stat__label">stumbles</span><span className="stat__value">{result.deaths}</span></div>}
           </div>
           <div className="card__actions">
             {onNext && (
@@ -322,18 +355,19 @@ function Play({ level, index, total, isLast = false, onBack, onNext }) {
     <div className="play">
       <header className="play__head">
         <button className="play__back" onClick={onBack}>&larr; levels</button>
-        <span className="play__title">{level.name}</span>
+        <div className="play__heading"><span className="eyebrow">Journey to Maizy</span><span className="play__title">{level.name}</span></div>
         <span className="play__count">{index + 1}/{total}</span>
         <button
           className="play__menu"
           onClick={togglePause}
           aria-label={paused ? 'resume' : 'pause and open the menu'}
         >
-          {paused ? '▶' : '⏸'}
+          {paused ? 'Resume' : 'Pause'}
         </button>
       </header>
 
       <div className="hud">
+        <p className="hud__objective"><span className="eyebrow">{game.dev ? 'Dev mode · invincible' : par != null ? 'The pursuit' : `${DIFFICULTIES[difficulty].label} · Follow her trail`}</span>{hud.needsAxe && !hud.hasAxe ? (game.grid.woodMode === 'optional' ? 'Take the long route, or find the axe for a shortcut.' : 'Find the axe. The timber blocks the way.') : hud.chopping > 0 ? 'Chopping… keep holding toward the timber.' : hud.exitOpen ? 'The gate is open. Find your way out.' : hud.captured === hud.flagsTotal && hud.markersLeft ? `Find Maizy’s ${hud.markersLeft} remaining trail markers.` : hud.hasAxe && hud.woodLeft > 0 ? 'Hold toward timber to chop. Gather the corn.' : game.grid.pickupMode === 'return' ? 'Each ear returns you home. Plan your trips.' : 'Gather the corn. Keep moving toward the gate.'}</p>
         <div className="hud__tile">
           <span className="hud__label">time</span>
           <span className="hud__value">{clock(hud.now)}</span>
@@ -345,6 +379,11 @@ function Play({ level, index, total, isLast = false, onBack, onNext }) {
             <span className="hud__pop">{hud.captured}</span><span className="hud__of">/{hud.flagsTotal}</span>
           </span>
         </div>
+        {(hud.needsAxe || hud.hasCharm) && <div className="hud__tools" aria-label="Equipment">
+          {game.grid.discoveries?.some(p => p.required) && <span>Trail markers: {game.grid.discoveries.filter(p => p.required).length - hud.markersLeft}/{game.grid.discoveries.filter(p => p.required).length}</span>}
+          {hud.needsAxe && <span className={hud.hasAxe ? 'is-equipped' : ''}>Axe: {hud.hasAxe ? 'ready' : 'find it'}</span>}
+          {hud.hasCharm && <span className={hud.charm ? 'is-equipped' : ''}>Ward: {hud.charm ? '1 charge' : hud.charmPicked ? 'used' : 'find it'}</span>}
+        </div>}
         {par != null && (
           <div className={`hud__tile hud__tile--par${hud.now > par ? ' is-blown' : ''}`}>
             <span className="hud__label">{hud.now > par ? 'too slow' : 'beat'}</span>
@@ -354,14 +393,18 @@ function Play({ level, index, total, isLast = false, onBack, onNext }) {
         {hud.hasHunter && (
           <div className={`hud__tile hud__tile--hunter${hud.hunterAwake ? ' is-awake' : ''}`}>
             <span className="hud__label">{hud.hunterAwake ? 'ghost' : 'ghost in'}</span>
-            <span className="hud__value">{hud.hunterAwake ? '\u{1F47B}' : `${hud.hunterIn}s`}</span>
+            <span className="hud__value">{hud.hunterAwake ? ({ chasing: 'Seen', searching: 'Searching', investigating: 'Heard you', hidden: 'Hidden' }[hud.hunterMood] ?? 'Close') : `${hud.hunterIn}s`}</span>
           </div>
         )}
       </div>
 
       <div className="board" ref={boardRef}>
-        <canvas ref={canvasRef} className="board__canvas" />
-        {intro && (
+        {hud.discovery && !paused && !lost && !intro && <div className="discovery-toast" role="status"><strong>{hud.discovery.title}</strong><p>{hud.discovery.text}</p><button onClick={() => pause(true)}>Read in journal · pause</button></div>}
+        <canvas ref={canvasRef} className="board__canvas" aria-label={`Maze for ${level.name}. Use arrow keys, WASD, or drag to move.`} />
+        {intro && lesson && (
+          <div className="board__overlay tool-lesson"><span className="eyebrow">A new way through</span><h2>{lesson.title}</h2><p>{lesson.text}</p><button className="btn btn--primary" onClick={endIntro}>Let’s go</button></div>
+        )}
+        {intro && !lesson && (
           <div className="board__intro" aria-hidden="true">
             <span className="board__intro-chapter">{level.chapter}</span>
             <span className="board__intro-name">{level.name}</span>
@@ -402,6 +445,16 @@ function Play({ level, index, total, isLast = false, onBack, onNext }) {
               </label>
               <button className="btn" onClick={onBack}>back to levels</button>
 
+              {(journalEntries().length > 0 || (game.grid.discoveries ?? []).length > 0) && <details className="field-journal" open={Boolean(hud.discovery)}><summary>Maizy’s trail · {journalEntries().length} found</summary>
+                {journalEntries().map(p => <p key={p.id}><strong>{p.title}</strong><br />{p.text}</p>)}
+                {!journalEntries().length && <p>Look for a pink ribbon along the trail.</p>}
+              </details>}
+              <details className="field-journal"><summary>Field guide</summary>
+                {lessonFor(level) && <p>{lessonFor(level).text}</p>}
+                <p>Cracked ground: trap. Green brush: stand still to hide. Pink ribbon: Maizy’s trail. Timber: hold toward it with an axe.</p>
+              </details>
+              <Difficulty value={difficulty} onChange={onDifficulty} restart />
+
               <div className="menu__assist">
                 <span className="menu__assist-title">make it kinder</span>
                 <label className="menu__toggle">
@@ -435,7 +488,7 @@ function Play({ level, index, total, isLast = false, onBack, onNext }) {
                 </span>
               </div>
             </div>
-            <span className="board__hint">P resume · R restart · Esc levels</span>
+            {!TOUCH && <span className="board__hint">P resume · R restart · Esc levels</span>}
           </div>
         )}
       </div>
@@ -449,7 +502,7 @@ function Play({ level, index, total, isLast = false, onBack, onNext }) {
       </p>
 
       <div className="play__controls">
-        <span className="play__keys">wasd / arrows / stick · R restart · P menu</span>
+        {!TOUCH && <span className="play__keys">WASD / arrows to move · R restart · P pause</span>}
         <button className="btn btn--sm" onClick={restart}>restart</button>
       </div>
     </div>

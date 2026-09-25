@@ -45,29 +45,21 @@ const MIN_SHAPE_DISTANCE = 0.55
  * different problems built from the same mechanics rather than the same problem
  * generated from different seeds.
  *
- * Each chapter opens on the intent the previous one closed with. That keeps the
- * one-new-variable rule honest: on the level where fog or the hunter or the
- * snow arrives, the shape of the problem is the shape you just finished, so the
- * only thing that has changed is the mechanic.
+ * Teaching chapters retain their original first encounter. Other transitions
+ * may change shape immediately: repeating a shape at every chapter boundary
+ * made the journey feel longer without teaching anything new.
  *
  * `terrain` is presentation only — it repaints the board so the journey looks
  * like it is going somewhere, and changes nothing the oracle judges.
  *
- * `count` is deliberately small. The campaign was 39 and the back half of it
- * was one board painted six ways: levels 20 to 39 were identical in size, ears,
- * traps, fog radius and hunter, and the only variable left to introduce was
- * fading memory. Shape distinctness does not rescue that, because a player
- * perceives size, threat count and new verbs, not maze topology. Cut to 26, so
- * that every chapter still has a variable of its own to spend.
- *
- * The previous version had ten chapters of a hundred levels in its design
- * document and shipped twenty-five that no one had played through. Twenty-six
- * levels that are all verified beatable is a better game than a hundred that
- * are not.
+ * `count` preserves the original seed sequence; `keep` selects twenty fields
+ * from that thirty-field pool. Every original chapter finale stays, preserving
+ * existing speedrun targets and the chapter story beats. No save is deleted.
  */
 const CHAPTERS = [
   {
     name: 'Warm Up',
+    keep: [0,2],
     intents: ['artery', 'warren', 'circuit'],
     terrain: 'field',
     blurb: null,
@@ -77,6 +69,7 @@ const CHAPTERS = [
   },
   {
     name: 'Two Trips',
+    keep: [0,1],
     teaches: 'traps',
     intents: ['circuit', 'bottleneck'],
     terrain: 'track',
@@ -89,6 +82,7 @@ const CHAPTERS = [
   // anything later spends the campaign before getting to it.
   {
     name: 'First Light',
+    keep: [0,2],
     teaches: 'fog',
     intents: ['bottleneck', 'gauntlet', 'artery'],
     terrain: 'dusk',
@@ -99,6 +93,7 @@ const CHAPTERS = [
   },
   {
     name: 'The Fog',
+    keep: [1],
     intents: ['artery', 'circuit'],
     terrain: 'woods',
     blurb: 'Low ground, and the air gone white with it.',
@@ -111,6 +106,7 @@ const CHAPTERS = [
   // new variable, so a player who suddenly struggles knows what changed.
   {
     name: 'Company',
+    keep: [0,2],
     teaches: 'hunter',
     intents: ['circuit', 'warren', 'bottleneck'],
     terrain: 'night',
@@ -121,6 +117,7 @@ const CHAPTERS = [
   },
   {
     name: 'No Mercy',
+    keep: [1],
     intents: ['bottleneck', 'gauntlet'],
     terrain: 'ridge',
     blurb: 'Up on the ridge itself. Nothing grows here.',
@@ -132,6 +129,7 @@ const CHAPTERS = [
   // it — one new thing per chapter, and neither ever leaves again.
   {
     name: 'The Dry Reach',
+    keep: [0,1],
     teaches: 'sand',
     intents: ['gauntlet', 'artery'],
     terrain: 'desert',
@@ -142,6 +140,7 @@ const CHAPTERS = [
   },
   {
     name: 'The White Mile',
+    keep: [0,1],
     teaches: 'snow',
     intents: ['artery', 'detour'],
     terrain: 'snow',
@@ -154,6 +153,7 @@ const CHAPTERS = [
   // to the chapter before it in every other respect.
   {
     name: 'Forgetting',
+    keep: [0,1],
     teaches: 'memory',
     intents: ['detour', 'warren'],
     terrain: 'marsh',
@@ -166,6 +166,7 @@ const CHAPTERS = [
   // strange place before the fires, and the only one lit from the walls in.
   {
     name: 'The Lit Wood',
+    keep: [1],
     intents: ['warren', 'bottleneck'],
     terrain: 'enchanted',
     blurb: 'The wood I have never once walked into.',
@@ -175,6 +176,7 @@ const CHAPTERS = [
   },
   {
     name: 'Nothing Stays',
+    keep: [2],
     intents: ['bottleneck', 'detour', 'gauntlet'],
     terrain: 'ember',
     blurb: 'Smoke on the wind. Their fires, close.',
@@ -186,6 +188,7 @@ const CHAPTERS = [
   // chapters — size is the variable, and it is the one a player feels most.
   {
     name: 'The Long Dark',
+    keep: [1],
     intents: ['gauntlet', 'detour'],
     terrain: 'night',
     blurb: 'Past their fires. It was not the end of it.',
@@ -195,6 +198,7 @@ const CHAPTERS = [
   },
   {
     name: 'The Fires',
+    keep: [1],
     intents: ['detour', 'artery'],
     terrain: 'ember',
     blurb: 'More fires. The real ones, this time.',
@@ -247,6 +251,9 @@ function build() {
       json.chapter = chapter.name
       json.blurb = chapter.blurb ?? null
       json.terrain = chapter.terrain
+      // Generate the original candidates to preserve names, geometry, and saved times.
+      // Only the selected crossings belong to the shorter story campaign.
+      if (!chapter.keep.includes(i)) continue
       levels.push(json)
 
       const d = level.difficulty

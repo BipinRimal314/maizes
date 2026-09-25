@@ -1,3 +1,4 @@
+import { searchTarget } from './search.js'
 /**
  * The hunter: the fourth and last mechanic.
  *
@@ -86,6 +87,9 @@ function createHunter(grid, pace = 1) {
     x: 0,
     y: 0,
     active: false,
+    behavior: grid.hunter.behavior,
+    sight: grid.hunter.sight ?? 7,
+    mood: 'asleep',
     spawnMs: grid.hunter.spawnMs,
     wakesAt: grid.hunter.spawnMs,
     speed: Math.min(grid.hunter.speed, hunterSpeedCap(grid)) * pace,
@@ -99,6 +103,10 @@ function createHunter(grid, pace = 1) {
 function sleepHunter(hunter, now) {
   if (!hunter) return
   hunter.active = false
+  hunter.mood = 'asleep'
+  hunter.lastKnown = null
+  hunter.patrol = null
+  hunter.heard = null
   hunter.wakesAt = now + hunter.spawnMs
   hunter.field = null
   hunter.fieldFrom = null
@@ -213,9 +221,10 @@ function stepHunter(hunter, grid, ball, now) {
   const playerCell = { x: Math.floor(ball.x), y: Math.floor(ball.y) }
   if (!inBounds(grid, playerCell.x, playerCell.y)) return false
 
-  if (!hunter.field || hunter.fieldFrom.x !== playerCell.x || hunter.fieldFrom.y !== playerCell.y) {
-    hunter.field = distanceField(grid, playerCell)
-    hunter.fieldFrom = playerCell
+  const targetCell = hunter.behavior === 'search' ? searchTarget(hunter, grid, ball, now) : playerCell
+  if (!hunter.field || hunter.fieldFrom.x !== targetCell.x || hunter.fieldFrom.y !== targetCell.y) {
+    hunter.field = distanceField(grid, targetCell)
+    hunter.fieldFrom = targetCell
   }
 
   const cell = { x: Math.floor(hunter.x), y: Math.floor(hunter.y) }

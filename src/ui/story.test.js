@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import {
-  recordWin, bestFor, hasSeen, markSeen, maizeCollected,
+  recordWin, bestFor, hasSeen, markSeen, maizeCollected, totals, doneCount, walkedMs,
   startSpeedrun, speedrunActive, speedrunComplete, speedrunProgress,
   parFor, isBeaten, finishSpeedrun, speedrunFinished, resetCache, hydrate,
   unlockedCount, isUnlocked, speedrunGaveUp, concedeSpeedrun, speedrunFields,
@@ -98,7 +98,7 @@ describe('story beats', () => {
     expect(hasSeen(PROLOGUE.id)).toBe(true)
     resetCache()
     await hydrate()
-    expect(hasSeen(PROLOGUE.id), 'did not survive a reload').toBe(true)
+    expect(hasSeen(PROLOGUE.id), 'progress cache should not affect dev mode').toBe(true)
   })
 })
 
@@ -324,11 +324,11 @@ describe('developer mode', () => {
     expect(isDevMode()).toBe(false)
   })
 
-  it('turns on and stays on', () => {
+  it('can be toggled for the current session', () => {
     setDevMode(true)
     expect(isDevMode()).toBe(true)
     resetCache()
-    expect(isDevMode(), 'did not survive a reload').toBe(true)
+    expect(isDevMode(), 'progress cache should not affect dev mode').toBe(true)
   })
 
   it('is switched by ?dev in the url', () => {
@@ -341,8 +341,11 @@ describe('developer mode', () => {
     expect(initDevMode()).toBe(true)
     url('?dev=0')
     expect(initDevMode()).toBe(false)
+    url('?dev=1')
+    expect(initDevMode()).toBe(true)
+    window.localStorage.setItem('maizes:dev', '1')
     url('')
-    expect(initDevMode(), 'no param should leave it alone').toBe(false)
+    expect(initDevMode(), 'normal URL must discard even a stored dev flag').toBe(false)
   })
 })
 
@@ -500,5 +503,35 @@ describe('the voices are people', () => {
   it('leaves her silent at the camp', () => {
     const spoken = BARGAIN.lines.filter((l) => l.v === 'v').map((l) => l.text.trim())
     expect(spoken.every((line) => /^[—-]?$/.test(line))).toBe(true)
+  })
+})
+
+// Old saves may contain fields removed from the story campaign.
+describe('a shorter campaign with an existing save', () => {
+  it('counts only current fields without deleting the old records', () => {
+    recordWin('Warm Up 2', { deaths: 3, ms: 18000 })
+    recordWin(levels[0].name, { deaths: 1, ms: 9000 })
+    expect(totals(levels)).toEqual({ levels: 1, deaths: 1, ms: 9000, flawless: 0 })
+    expect(doneCount(levels)).toBe(1)
+    expect(walkedMs(levels)).toBe(9000)
+    expect(bestFor('Warm Up 2')).toEqual({ deaths: 3, ms: 18000 })
+    expect(unlockedCount(levels)).toBe(2)
+  })
+})
+
+describe('campaign saves', () => {
+  it('keeps the old campaign intact while the hundred-field journey starts fresh', async () => {
+    window.localStorage.setItem('maizes:v1', JSON.stringify({ done: { 'Warm Up 1': { deaths: 1, ms: 9000 } }, story: { prologue: true } }))
+    await hydrate('journey-v2')
+    expect(hasSeen('prologue')).toBe(false)
+    expect(doneCount()).toBe(0)
+    recordWin('Field 001', { deaths: 0, ms: 6000 })
+    markSeen('prologue')
+    resetCache()
+    await hydrate('journey-v2')
+    expect(bestFor('Field 001')).toEqual({ deaths: 0, ms: 6000 })
+    expect(hasSeen('prologue')).toBe(true)
+    const legacy = JSON.parse(window.localStorage.getItem('maizes:v1'))
+    expect(legacy.done['Warm Up 1'].ms).toBe(9000)
   })
 })

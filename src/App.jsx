@@ -1,3 +1,4 @@
+import { getDifficulty, saveDifficulty } from './engine/difficulty.js'
 import { useState, useEffect, useCallback } from 'react'
 import { fromJSON } from './generate/generate.js'
 import Levels from './ui/Levels.jsx'
@@ -5,12 +6,12 @@ import Play from './ui/Play.jsx'
 import Story from './ui/Story.jsx'
 import Finale from './ui/Finale.jsx'
 import { record, flush } from './ui/telemetry.js'
-import { initDevMode } from './ui/devmode.js'
+import { initDevMode, isDevMode } from './ui/devmode.js'
 import {
   PROLOGUE, BARGAIN, SPEEDRUN_BRIEF, ENDING, LOST_HER, beatsAfterLevel,
 } from './ui/story.js'
 import {
-  hasSeen, markSeen, startSpeedrun, hydrate, flushProgress,
+  hasSeen, markSeen, startSpeedrun, hydrate, flushProgress, setProgressProfile,
   speedrunActive, speedrunComplete, finishSpeedrun, concedeSpeedrun, parFor,
 } from './ui/progress.js'
 
@@ -29,6 +30,11 @@ const BASE = import.meta.env?.BASE_URL || '/'
  * one go — and they play out in order before the level list comes back.
  */
 function App() {
+  const [difficulty, setDifficulty] = useState(getDifficulty)
+  const changeDifficulty = (value) => {
+    setProgressProfile(value, isDevMode())
+    setDifficulty(saveDifficulty(value))
+  }
   const [ready, setReady] = useState(false)
   const [levels, setLevels] = useState(null)
   const [current, setCurrent] = useState(null)
@@ -47,7 +53,7 @@ function App() {
    */
   useEffect(() => {
     let cancelled = false
-    hydrate().then(() => { if (!cancelled) setReady(true) })
+    hydrate('journey-v2').then(() => { if (!cancelled) setReady(true) })
     return () => { cancelled = true }
   }, [])
 
@@ -61,7 +67,7 @@ function App() {
   useEffect(() => {
     if (!ready) return undefined
     let cancelled = false
-    fetch(`${BASE}levels.json`)
+    fetch(`${BASE}campaign-v2.json`)
       .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json() })
       .then((data) => {
         if (cancelled) return
@@ -69,7 +75,10 @@ function App() {
         // queued here rather than in an effect on `levels`: this is the moment
         // it becomes true, and an effect that sets state on its own dependency
         // is a render loop waiting to happen
-        if (!hasSeen(PROLOGUE.id)) setQueue([PROLOGUE])
+        const requested = Number(new URLSearchParams(window.location.search).get('level'))
+        if (isDevMode() && Number.isInteger(requested) && requested >= 1 && requested <= data.length) {
+          setCurrent(requested - 1)
+        } else if (!hasSeen(PROLOGUE.id)) setQueue([PROLOGUE])
       })
       .catch((e) => { if (!cancelled) setError(e.message) })
     return () => { cancelled = true }
@@ -79,7 +88,10 @@ function App() {
   useEffect(() => { flush() }, [])
 
   // ?dev in the url flips developer mode before anything renders
-  useEffect(() => { initDevMode() }, [])
+  useEffect(() => {
+    initDevMode()
+    setProgressProfile(getDifficulty(), isDevMode())
+  }, [])
 
   useEffect(() => {
     document.body.classList.toggle('is-playing', current !== null)
@@ -204,7 +216,9 @@ function App() {
   if (current !== null) {
     return (
       <Play
-        key={current}
+        key={`${current}-${difficulty}`}
+        difficulty={difficulty}
+        onDifficulty={changeDifficulty}
         level={levels[current]}
         index={current}
         total={levels.length}
@@ -226,7 +240,7 @@ function App() {
     )
   }
 
-  return <Levels levels={levels} onPick={setCurrent} />
+  return <Levels levels={levels} onPick={setCurrent} difficulty={difficulty} onDifficulty={changeDifficulty} />
 }
 
 export default App

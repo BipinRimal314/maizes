@@ -19,7 +19,7 @@ function duration(ms) {
  * level, added up" is a number worth chasing down.
  */
 function Finale({ levels = [], total, onBack, onConcede = null }) {
-  const stats = totals()
+  const stats = totals(levels.length ? levels : undefined)
   const complete = stats.levels >= total
   const rescued = speedrunFinished()
   const conceded = speedrunGaveUp()
@@ -29,9 +29,7 @@ function Finale({ levels = [], total, onBack, onConcede = null }) {
   return (
     <div className="result">
       <div className="card card--finale">
-        <div className="card__emoji">
-          {rescued ? '\u{1F33D}' : conceded ? '\u{1F342}' : racing ? '\u{1F3C3}' : '\u{1F3C1}'}
-        </div>
+        <span className="eyebrow">The journey so far</span>
         <h2 className="card__title">
           {rescued
             ? 'you got her back.'

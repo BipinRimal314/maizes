@@ -3,6 +3,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App.jsx'
+import { PROLOGUE } from './content.js'
 import Play from './ui/Play.jsx'
 import Finale from './ui/Finale.jsx'
 import { fromJSON } from './generate/generate.js'
@@ -49,6 +50,8 @@ function fakeStorage() {
 let errors
 
 beforeEach(() => {
+  window.history.replaceState({}, '', '/')
+  setDevMode(false)
   Object.defineProperty(window, 'localStorage', {
     value: fakeStorage(), configurable: true, writable: true,
   })
@@ -131,7 +134,7 @@ describe('the app boots', () => {
     global.fetch = vi.fn(async () => ({ ok: true, json: async () => levelData }))
     const view = await mount(<App />)
     // the prologue comes first on a fresh save, and gives almost nothing away
-    expect(view.text).toContain('corn on the ground')
+    expect(view.text).toContain(PROLOGUE.lines[0].text)
     await skipStory(view)
 
     // no menu in between: "pick it up" picks it up
@@ -312,7 +315,7 @@ describe('the finale', () => {
   })
 
   it('is reachable from the last level once every level is unlocked', async () => {
-    setDevMode(true)
+    window.history.replaceState({}, '', '/?dev=1')
     global.fetch = vi.fn(async () => ({ ok: true, json: async () => levelData }))
     const view = await mount(<App />)
     await skipStory(view)

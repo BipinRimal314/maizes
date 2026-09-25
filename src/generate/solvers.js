@@ -57,6 +57,8 @@ function steer(game, target) {
  * Walk a known route. Gives up if the ball stops closing on its waypoint, which
  * is how physical impossibility announces itself.
  */
+const gridPickupReturns = game => game.grid.pickupMode !== 'continuous' && !game.dev
+
 function followRoute(game, route, budget) {
   let waypoint = 1
   let steps = 0
@@ -83,7 +85,7 @@ function followRoute(game, route, budget) {
     if (game.lost) { clearInput(game); return { ok: true, steps, lost: true } }
     // both send the ball to the start, so the route no longer applies
     if (game.deaths > deathsBefore) { clearInput(game); return { ok: true, steps, died: true } }
-    if (game.captured.size > capturedBefore) { clearInput(game); return { ok: true, steps, captured: true } }
+    if (game.captured.size > capturedBefore && gridPickupReturns(game)) { clearInput(game); return { ok: true, steps, captured: true } }
 
     const distance = Math.hypot(target.x + 0.5 - game.ball.x, target.y + 0.5 - game.ball.y)
     if (distance < closest - 1e-4) {
@@ -121,6 +123,15 @@ function playPerfectly(grid, { budget = 250000 } = {}) {
   const endLeg = () => {
     longestLegMs = Math.max(longestLegMs, game.now - legStartedAt)
     legStartedAt = game.now
+  }
+
+  // Find tools on the collision map that exists before any timber is removed.
+  for (const target of [grid.axe, grid.charm, ...(grid.discoveries ?? []).filter(p => p.required)].filter(Boolean)) {
+    const route = findPath(game.hasAxe ? grid : game.grid, ballCell(game.ball), target, traps)
+    if (!route) return { solved: false, reason: 'tool has no safe route', deaths: game.deaths, steps }
+    const walked = followRoute(game, route, budget - steps)
+    steps += walked.steps
+    if (!walked.ok || walked.lost || walked.died) return { solved: false, reason: 'could not reach tool', deaths: game.deaths, steps }
   }
 
   while (!game.exitOpen && guard-- > 0) {
@@ -219,6 +230,9 @@ function nearestFrontier(grid, from, known, avoid) {
 
 /** What a blind player should head for next. */
 function blindTarget(grid, game, from, known, avoid) {
+  for (const tool of [!game.hasAxe && grid.axe, !game.charmPicked && grid.charm, ...(grid.discoveries ?? []).filter(p => p.required && !game.discoveries.has(p.id))].filter(Boolean)) {
+    if (known.has(key(tool.x, tool.y)) && findPath(grid, from, tool, avoid)) return tool
+  }
   for (const flag of grid.flags) {
     const id = key(flag.x, flag.y)
     if (game.captured.has(id) || !known.has(id)) continue
@@ -272,15 +286,16 @@ function playBlind(grid, { budget = 150000 } = {}) {
     known.add(key(from.x, from.y))
 
     // prefer routes that avoid known traps; accept one rather than stand still
-    let target = blindTarget(grid, game, from, known, learned)
+    const planningGrid = game.hasAxe ? grid : game.grid
+    let target = blindTarget(planningGrid, game, from, known, learned)
     let avoid = learned
     if (!target) {
-      target = blindTarget(grid, game, from, known, new Set())
+      target = blindTarget(planningGrid, game, from, known, new Set())
       avoid = new Set()
     }
     if (!target) break
 
-    const route = findPath(grid, from, target, avoid) || findPath(grid, from, target, new Set())
+    const route = findPath(planningGrid, from, target, avoid) || findPath(planningGrid, from, target, new Set())
     if (!route || route.length < 2) break
 
     // one cell at a time, so a death or capture re-plans immediately

@@ -30,7 +30,8 @@ const VOLUME_KEY = 'maizes:volume'
 let audioCtx = null
 let volume = (() => {
   try {
-    const stored = Number(localStorage.getItem(VOLUME_KEY))
+    const saved = localStorage.getItem(VOLUME_KEY)
+    const stored = saved === null ? NaN : Number(saved)
     return Number.isFinite(stored) && stored >= 0 && stored <= 1 ? stored : 0.55
   } catch { return 0.55 }
 })()
@@ -44,6 +45,15 @@ function context() {
   if (!Ctor) return null
   audioCtx = new Ctor()
   return audioCtx
+}
+
+/** Called from a real input gesture, including direct dev-mode entry. */
+function unlockAudio() {
+  if (muted) return
+  try {
+    const ctx = context()
+    if (ctx?.state === 'suspended') ctx.resume().catch(() => {})
+  } catch { /* unsupported audio must not interrupt play */ }
 }
 
 /**
@@ -94,27 +104,17 @@ function thud(ctx, { cutoff, gain, duration, q = 1 }) {
 }
 
 const VOICES = {
-  /*
-   * Death, and the reason it is two sounds.
-   *
-   * It used to be a lone sawtooth sweeping 300Hz down to 80Hz — which was
-   * audible on an empty board and stopped being so once the terrain ambience
-   * arrived, because the drone beds sit at 44-82Hz and the fall lands straight
-   * on top of them. A tone that ends inside another tone is a tone nobody
-   * hears. So the fall is shorter and no longer reaches the drones, and it is
-   * fronted by a filtered noise transient: an impact reads through a drone in a
-   * way a pitch does not.
-   */
-  /*
-   * Everything here is quiet on purpose. The one-shots used to sit a good
-   * third louder than this and the field sounded like an arcade; a man
-   * walking a dark field at night makes small sounds, and so should his game.
-   * Triangles rather than sawtooths and squares wherever a tone is needed —
-   * the same pitch with less edge on it.
-   */
+  chop: ctx => thud(ctx, { cutoff: 2100, gain: .17, duration: .09 }),
+  timber: ctx => {
+    thud(ctx, { cutoff: 1400, gain: .2, duration: .24 })
+    tone(ctx, { type: 'triangle', from: 180, to: 70, gain: .08, duration: .28 })
+  },
+  discovery: ctx => [440, 660, 550].forEach((from, i) => tone(ctx, { type: 'sine', from, gain: .1, duration: .4, delay: i * .16 })),
+  // Failure needs a readable midrange impact on small speakers, above the
+  // low terrain drones. Walking and wall bumps remain deliberately subtle.
   death: (ctx) => {
-    thud(ctx, { cutoff: 800, gain: 0.13, duration: 0.12, q: 0.9 })
-    tone(ctx, { type: 'triangle', from: 300, to: 130, gain: 0.10, duration: 0.2 })
+    thud(ctx, { cutoff: 1600, gain: 0.24, duration: 0.18, q: 0.9 })
+    tone(ctx, { type: 'triangle', from: 480, to: 190, gain: 0.17, duration: 0.32 })
   },
 
   // a knock against a wall: barely there, and rate-limited by the engine
@@ -131,19 +131,23 @@ const VOICES = {
     tone(ctx, { type: 'triangle', from: f, to: f * 0.72, gain: 0.1, duration: 0.3, delay })),
 
   caught: (ctx) => {
-    thud(ctx, { cutoff: 450, gain: 0.15, duration: 0.26, q: 0.7 })
-    tone(ctx, { type: 'triangle', from: 220, to: 90, gain: 0.1, duration: 0.36 })
+    thud(ctx, { cutoff: 1100, gain: 0.26, duration: 0.26, q: 0.7 })
+    tone(ctx, { type: 'triangle', from: 350, to: 150, gain: 0.18, duration: 0.42 })
   },
 }
 
 function playSound(name) {
-  if (muted) return
+  if (muted || volume === 0) return
   const voice = VOICES[name]
   if (!voice) return
   try {
     const ctx = context()
     if (!ctx) return
-    if (ctx.state === 'suspended') ctx.resume()
+    if (ctx.state === 'suspended') {
+      return ctx.resume().then(() => {
+        if (!muted && volume > 0) voice(ctx)
+      }).catch(() => {})
+    }
     voice(ctx)
   } catch { /* blocked or missing audio must not break the loop */ }
 }
@@ -328,7 +332,7 @@ function setHunterProximity(nearness) {
 }
 
 export {
-  playSound, setMuted, isMuted, toggleMuted, MUTE_KEY,
+  playSound, unlockAudio, setMuted, isMuted, toggleMuted, MUTE_KEY,
   setVolume, getVolume, VOLUME_KEY,
   playStep, startAmbience, stopAmbience, setHunterProximity,
   FOOTFALLS, AMBIENCE,

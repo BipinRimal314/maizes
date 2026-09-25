@@ -1,3 +1,9 @@
+The web campaign has been revamped: 89 continuous exploration fields, 11 return-trip puzzles, 20 optional axe shortcuts, searchable ghosts and hiding places, 27 journal discoveries, and a three-marker finale. Existing unlocks remain; new records are separated by difficulty and dev mode. See [REVAMP.md](REVAMP.md) for the current design and playtest guide. The notes below include earlier campaign history.
+
+# Current web campaign
+
+The web game now has **100 fields**, an axe that clears timber, slower ghosts, and a single-use protective ward. Run `npm run dev`; use `?dev=1&level=7` to test the axe. `npm run build` regenerates and verifies `public/campaign-v2.json`. See `thoughts.md` for the progression and `HANDOFF.md` for platform status. Easy and Difficult are selectable on the level screen or in Pause (changing mid-field restarts it). Easy keeps maize after traps, halves trap counts rounded up, and uses 70% of the campaign ghost speed. Difficult adds traps only to empty dead ends, resets maize after traps, and uses 150% ghost speed with the existing outrun cap. Unlocks and existing progress are shared. The native iOS client retains the earlier campaign; the older design history below describes that build.
+
 # Journey to Maizy
 
 Thirty mazes. You cannot see most of them. You are a farmer following a
@@ -108,7 +114,7 @@ level 12 in developer mode does not hand a real player levels 2 through 12 they
 never walked.
 
 `?dev` unlocks everything and puts the tags back; `?dev=0` turns it off again,
-and the choice is remembered. It is deliberately not a keyboard easter egg — a
+and the ordinary URL always starts normal play. Dev mode is never remembered in storage. It is deliberately not a keyboard easter egg — a
 tester who stumbles onto a secret that reveals the whole campaign has had the
 game spoiled by accident.
 

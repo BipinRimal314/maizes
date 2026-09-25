@@ -1,10 +1,13 @@
+import Difficulty from './Difficulty.jsx'
 import { useState, useCallback } from 'react'
 import {
-  isDone, bestFor, doneCount, unlockedCount, walkedMs,
+  journalEntries, setProgressProfile, isDone, bestFor, doneCount, unlockedCount, walkedMs,
   speedrunActive, speedrunProgress, parFor, isBeaten,
 } from './progress.js'
 import { isMuted, toggleMuted } from '../engine/sound.js'
 import { enabled as telemetryOn, isRecording, toggleRecording } from './telemetry.js'
+import Landscape from './Landscape.jsx'
+import { starsFor } from './rewards.js'
 import { isDevMode, toggleDevMode } from './devmode.js'
 
 /**
@@ -30,7 +33,7 @@ function walked(ms) {
   if (minutes < 60) return `${minutes}m ${String(total % 60).padStart(2, '0')}s`
   return `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, '0')}m`
 }
-function Levels({ levels, onPick }) {
+function Levels({ levels, onPick, difficulty = 'easy', onDifficulty }) {
   const [muted, setMuted] = useState(isMuted)
   const onToggleSound = useCallback(() => { setMuted(toggleMuted()) }, [])
 
@@ -38,9 +41,14 @@ function Levels({ levels, onPick }) {
   const onToggleRecording = useCallback(() => { setRecording(toggleRecording()) }, [])
 
   const [dev, setDev] = useState(isDevMode)
-  const onToggleDev = useCallback(() => { setDev(toggleDevMode()) }, [])
+  const onToggleDev = useCallback(() => {
+    const next = toggleDevMode()
+    setProgressProfile(difficulty, next)
+    setDev(next)
+  }, [difficulty])
 
-  const done = doneCount()
+  const done = doneCount(levels)
+  const stars = levels.reduce((sum, level) => sum + starsFor(level, bestFor(level.name)), 0)
   const racing = speedrunActive()
   const run = racing ? speedrunProgress(levels) : null
 
@@ -62,30 +70,42 @@ function Levels({ levels, onPick }) {
   }
 
   const remaining = racing ? 0 : levels.length - reach
+  const nextIndex = racing
+    ? levels.findIndex((l) => parFor(l.name) != null && !isBeaten(l.name))
+    : Math.min(unlockedCount(levels) - 1, levels.length - 1)
+  const destinationIndex = nextIndex < 0
+    ? Math.max(0, levels.findIndex((l) => parFor(l.name) != null))
+    : nextIndex
+  const destination = levels[destinationIndex]
 
   return (
     <div className="levels">
-      <header className="levels__head">
-        <h1 className="levels__title">Journey to Maizy</h1>
-        <p className="levels__tag">a trail of dropped corn, and a father following it.</p>
-        {racing
-          ? <p className="levels__progress levels__progress--racing">
-              running it back &middot; {run.beaten} of {run.total} fields beaten
-            </p>
-          : done > 0 && (
-              <p className="levels__progress">
-                {done} of {levels.length} escaped
-                <span className="levels__walked"> &middot; walked {walked(walkedMs())}</span>
-              </p>
-            )}
-        <button
-          className="levels__sound"
-          onClick={onToggleSound}
-          aria-label={muted ? 'turn sound on' : 'turn sound off'}
-        >
-          {muted ? '\u{1F507} sound off' : '\u{1F50A} sound on'}
+      <header className="journey-nav">
+        <span className="journey-nav__brand">M<span aria-hidden="true"> / </span><span>Journey to Maizy</span></span>
+        <button className="levels__sound" onClick={onToggleSound} aria-label={muted ? 'turn sound on' : 'turn sound off'}>
+          Sound {muted ? 'off' : 'on'}
         </button>
       </header>
+      <section className="journey-hero">
+        <Landscape />
+        <div className="journey-hero__copy">
+          <span className="eyebrow">{racing ? 'The pursuit' : 'An ordinary father. An unfamiliar road.'}</span>
+          <h1 className="levels__title">Follow the<br /><em>little things.</em></h1>
+          <p>Someone left a trail. Keep going.</p>
+          <button className="btn btn--primary journey-continue" onClick={() => onPick(destinationIndex)}>
+            {racing ? (nextIndex < 0 ? 'Revisit the trail' : 'Catch the cart') : done ? 'Continue the journey' : 'Take the first step'} <span aria-hidden="true">↗</span>
+          </button>
+          <span className="journey-hero__destination">{destination.chapter} · Field {destinationIndex + 1}</span>
+        </div>
+        <div className="journey-hero__foot">
+          <span>{racing ? `${run.beaten} / ${run.total} crossings beaten` : `${done} / ${levels.length} fields crossed`}</span>
+          <span>{walked(walkedMs(levels))} on the trail</span>
+          <span>{stars} / {levels.length * 3} {dev ? 'dev' : difficulty} stars</span>
+        </div>
+      </section>
+      <Difficulty value={difficulty} onChange={onDifficulty} />
+      {journalEntries().length > 0 && <details className="field-journal"><summary>Maizy’s trail · {journalEntries().length} discoveries</summary>{journalEntries().map(p => <p key={p.id}><strong>{p.title}</strong><br />{p.text}</p>)}</details>}
+      <div className="journey-section-title"><h2>Your trail</h2><span>{racing ? 'Find a faster way through' : 'Every field brings you closer'}</span></div>
 
       {chapters.map((chapter) => (
         <section className="chapter" key={chapter.name}>
@@ -96,16 +116,20 @@ function Levels({ levels, onPick }) {
               const best = bestFor(level.name)
               return (
                 <button
-                  className={`card-level${racing && isBeaten(level.name) ? ' is-beaten' : ''}`}
+                  aria-label={`Play ${level.name}`}
+                  className={`card-level${level.index === nextIndex ? ' is-current' : ''}${racing && isBeaten(level.name) ? ' is-beaten' : ''}`}
                   key={level.name}
                   onClick={() => onPick(level.index)}
                 >
                   <span className="card-level__top">
                     <span className="card-level__n">{level.index + 1}</span>
                     {racing
-                      ? isBeaten(level.name) && <span className="card-level__done">{'\u{1F3C3}'}</span>
-                      : isDone(level.name) && <span className="card-level__done">{'\u{2B50}'}</span>}
+                      ? isBeaten(level.name) && <span className="card-level__done">✓</span>
+                      : isDone(level.name) && <span className="card-level__done">✓</span>}
                   </span>
+                  <span className="level-stars" aria-label={`${starsFor(level, best)} of 3 stars`}>{'★'.repeat(starsFor(level, best))}<span aria-hidden="true">{'☆'.repeat(3 - starsFor(level, best))}</span></span>
+                  <span className="card-level__name">{level.challenge || level.name}{level.milestone ? ' · Milestone' : ''}</span>
+                  <span className="card-level__status">{isDone(level.name) ? 'Crossed' : level.challenge || 'Follow the trail'} <span aria-hidden="true">↗</span></span>
                   {dev && (
                     <span className="card-level__tags">
                       <span className="tag tag--flag">{level.grid.flags.length} maize</span>
@@ -139,18 +163,9 @@ function Levels({ levels, onPick }) {
         <section className="chapter chapter--unknown">
           <h2 className="chapter__name">the trail goes on</h2>
           <p className="chapter__blurb">
-            {remaining} more of it, and no telling what is in them until you are standing there.
+            {remaining} fields beyond this point. One step at a time.
           </p>
-          <div className="chapter__grid">
-            {Array.from({ length: Math.min(remaining, 6) }, (_, i) => (
-              <span className="card-level card-level--locked" key={i} aria-hidden="true">
-                <span className="card-level__top">
-                  <span className="card-level__n">{reach + i + 1}</span>
-                </span>
-                <span className="card-level__lock">{'\u{1F33E}'}</span>
-              </span>
-            ))}
-          </div>
+          <div className="unknown-trail" aria-hidden="true">· · · · · · ·</div>
         </section>
       )}
 

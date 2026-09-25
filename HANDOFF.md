@@ -3,7 +3,60 @@
 Where *Journey to Maizy* is, what is decided, and what is not. Read this and
 `README.md` and you have the whole picture.
 
-Last updated after the feel pass (see *Phase 8* below).
+Last updated: 2026-09-22. Resume with the plan below on 2026-09-23.
+
+## Tomorrow: playtest and polish the revamp
+
+The next priority is to establish whether the new campaign is fun, readable, and well paced before adding more features. The user has already tested all 100 levels of the earlier version; do not ask for another full campaign run as the first step.
+
+### Current completed web work
+
+- 100 generated fields: 89 continuous exploration fields and 11 deliberate return-trip puzzles.
+- 20 optional axe shortcuts: take the longer open route or chop timber and attract an active ghost.
+- Ghosts use corridor sight, last-seen-position search, and sound investigation. Standing still in green brush hides the farmer, but contact still catches him.
+- Traps have cracked-ground clues beneath fog; red crosses and full-map visibility remain dev-only.
+- 27 authored discoveries, saved in a persistent journal available from Pause and the level screen.
+- Level 100 combines axe, timber, ghost, shelters, ward, maize, and three required Maizy trail markers.
+- Easy/Difficult settings; separate revision-specific times, stars, journals, and pursuit targets for each difficulty and dev mode. Existing unlocks are preserved.
+- Clearer death/catch sounds and distinct chopping, timber-breaking, discovery, pickup, and ghost-wake cues. Listening on target devices is still needed.
+- Latest verification: 733 tests passed, including all 100 fields in both difficulty variants; desktop/phone browser checks and production build passed. These checks establish correctness, not enjoyment.
+
+### Ordered next steps — proposed, not yet implemented
+
+1. **Seven-level normal-mode playtest.** Sample fields 7, 16, 23, 30, 33, 71, and 100. Use normal play so invincibility, visible traps, and removed fog do not hide problems. Compare Easy and Difficult where useful.
+2. **Hand-polish those seven fields.** Adjust routes, maize placement, shelter positions, and ghost timing based on observations. Establish quality benchmarks before changing the rest of the generated campaign. Ensure hand edits survive regeneration; do not only edit generated JSON.
+3. **Improve audiovisual consistency.** Give the farmer, ghost, timber, and discoveries consistent art and animation. Listen to the mix on headphones and phone speakers. Blender is optional: cohesive 2D artwork may be sufficient. Earlier asset suggestions are in `ASSETS.md`.
+4. **Small blind playtest.** Let a few new players play without explanations. Observe hesitation, misunderstood rules, restarts, and where they stop. Do not coach them past confusing moments before recording those observations.
+5. **Prepare a shareable build after fixes.** Disable dev features, check save migration, then prepare the build for review. A new public deployment has not been made in this revamp pass.
+
+Recommended first implementation: a **normal-mode chapter/field replay selector**, followed by the seven-level polish pass. The selector should expose legitimately unlocked fields without enabling dev features or granting new unlocks. This is a proposal for tomorrow, not an existing feature.
+
+| Field | Focus | Questions to answer |
+|---|---|---|
+| 7 | Required axe | Is the axe route clear? Is chopping easy to understand and satisfying? |
+| 16 | Return trips | Does the special reset rule create planning rather than repetitive walking? |
+| 23 | Optional shortcut | Is the longer route viable? Is finding and using the axe worth the detour? |
+| 30 | Ghost search | Can players understand sight, break pursuit, and use cover without coaching? |
+| 33 | Quiet discovery | Does the pause in pressure feel earned? Does the clue deepen Maizy’s character? |
+| 71 | Ward | Is its one-use protection understandable? Does it create a useful decision? |
+| 100 | Finale | Do the combined skills and three markers feel like a payoff rather than a long maze? |
+
+For every sampled field, record difficulty, completion time, deaths, confusing moments, repeated travel, enjoyment, and one proposed adjustment. Specifically check trap readability, useful shelter placement, ghost escape opportunities, and whether discoveries can be read without frustrating interruption. On a hunted shortcut field, check the tradeoff between chopping noise and the time saved.
+
+### Resume instructions and limits
+
+- Project: `/Users/bipinrimal/Downloads/claude work/mazochist`.
+- Normal preview: `http://127.0.0.1:5187/`.
+- Start if needed: `npm run dev -- --host 127.0.0.1 --port 5187 --strictPort`.
+- Dev direct entry: `http://127.0.0.1:5187/?dev=1&level=23`. Use for inspection, not judging normal difficulty. Normal `&level=N` entry is not currently supported.
+- Validation: `npm test` and `npm run build`. The build regenerates `public/campaign-v2.json`.
+- Read `REVAMP.md` for current rules and implementation limits. The mazes remain generated, not 100 individually handcrafted puzzles. Ghost search is intentionally simple.
+- Changes currently target React web and wrappers using that build. Native Swift retains the earlier campaign; it has not received the revamp.
+- Preserve existing saves and unrelated working-tree changes. Do not reset the repository or erase progress to start testing.
+
+## Historical handoff notes
+
+The sections below preserve earlier decisions and platform history. Where they conflict with the current status above or `REVAMP.md`, use the current status. In particular, older level counts, invisible-trap descriptions, and shared-best-time rules are superseded for the web game.
 
 ---
 
@@ -14,7 +67,7 @@ steer a small yellow shape through mazes you mostly cannot see, gathering maize,
 avoiding invisible traps, and — later — outrunning something. The yellow shape
 turns out to be his hat.
 
-Thirty levels in thirteen chapters, plus a second act that races one field
+Twenty levels in thirteen chapters, plus a second act that races one field
 from each. The last two chapters are big — 28x16 and 38x21 against 18x11
 everywhere before — and on a screen too small to hold them the view scrolls
 with the hat. Every level is **generated from a seed and proven beatable by a
@@ -39,6 +92,36 @@ npm run desktop:build    # a bundle for the OS you are on
 npm run stats            # read the playtest back: funnel, and sim vs. reality
 vercel deploy --prod --yes
 ```
+
+### Mobile (branch `mobile`, started 2026-09-14)
+
+| | |
+|---|---|
+| Android | Capacitor 8 around the web build, `android/`. Debug APK builds; **never run on a device**. Wrapper pinned to Gradle 9.0.0 because this machine's Java cannot download (curl can) and 9.0.0 was already cached from Sing — build with `--offline` |
+| iOS | **Native SwiftUI**, `ios/`. Generate the project with `cd ios && xcodegen`. Runs in the Simulator; touch stick and sound **never tried by hand** |
+
+```bash
+npm run build:share && npx cap sync android
+cd android && JAVA_HOME=/opt/homebrew/opt/openjdk@21 ./gradlew assembleDebug --offline
+cd ios && xcodegen && xcodebuild test -scheme Maizes -destination 'platform=iOS Simulator,name=iPhone 17 Pro'
+npm run traces   # after ANY change to src/engine or levels.json
+```
+
+**The iOS rules are a Swift port, and the port is proven, not trusted.**
+`src/scripts/traces.js` records the JS engine under three drivers (route to a
+win, random wander into traps, linger until caught) and
+`ios/MaizesTests/ParityTests.swift` replays ~330k steps and compares every
+checkpoint by **bit pattern**. It passes. Swapping in libm's `hypot` breaks it
+within a few steps, which is why `JSMath.swift` reimplements V8's `Math.hypot`.
+Change the JS engine without regenerating traces and the test goes red; that is
+the point.
+
+iOS deliberately has no telemetry, no gamepad, and system fonts instead of
+Plus Jakarta / Be Vietnam. `-MaizesLevel N` (Debug only) opens a field directly.
+
+**Before either store:** the maize sprite's licence (see README Credits) is
+unresolved, and Android's build includes the Supabase telemetry, which the
+Play Data Safety form has to declare.
 
 ---
 
@@ -313,3 +396,29 @@ Two things to look at first when someone does play it:
 - the deployed web build is **stale** — it is still the 39-level campaign
 
 Everything else waits on the art decision.
+
+## Web UI and campaign edit — 2026-09-21
+
+Applied the taste-skill repository's redesign-existing-projects instructions to the web interface. New original SVG landscape, dusk palette, serif display type, illustrated story screens, journey continuation, and compact gameplay HUD. Styles are in src/journey.css; native SwiftUI retains its existing visual design.
+
+The campaign is twenty fields selected from the existing thirty, through explicit keep indices in buildLevels.js. All teaching encounters and all original chapter finales remain. Retained JSON objects are identical to their old versions, so their saved times remain comparable. Stats now exclude retired fields without deleting records in either client. The thirteen-field second act is unchanged. Whisper keys were moved to retained fields in both copies of the text.
+
+Validation: web unit and solver tests, browser checks at desktop and phone sizes, production web build, and regenerated iOS parity traces. Native compilation was not run; this machine's Xcode licence setup remains incomplete.
+
+## Hundred-field web campaign — 2026-09-22
+
+The current web entry point loads `campaign-v2.json`. Build it with `npm run campaign` or `npm run build`. There are 100 oracle-validated levels, axe routes beginning at 7, slow ghosts beginning at 30, one-use wards beginning at 71, optional three-star replay goals, and the largest board at 100. Tools use movement input: walk onto a pickup, then hold toward timber to chop. Dynamic collision walls belong to each game instance, never to the shared level definition.
+
+`maizes:journey-v2` is the new browser save; desktop uses `save-journey-v2.json`. Old saves remain intact. Dev mode supports direct `&level=N` links. The native SwiftUI client still uses the legacy twenty-field `levels.json` and does not support the new tool campaign. Legacy parity traces continue to be generated against that file. The Android wrapper uses the new web UI after a future sync/build; no native package was built in this pass.
+
+### Difficulty and developer isolation
+
+Web now defaults to Easy; `maizes:difficulty` remembers Easy/Difficult independently of campaign progress. `createGame(grid, assist, difficulty)` applies a non-mutating grid variant; omitted difficulty retains legacy solver/native-parity rules. Easy halves traps (rounded up), uses 0.7× campaign ghost speed, and keeps maize after trap falls. Difficult adds up to the existing trap count (minimum two) in unoccupied dead ends, uses 1.5× ghost speed subject to terrain cap, and clears maize after any trap fall. Intro/relief fields without traps remain trap-free. Ghost catches and manual restarts still clear the attempt in both modes. Timber/tool state survives trap falls as before.
+
+Difficulty controls live on Levels and Pause; changing mid-level remounts the field. Campaign unlocks, bests and story progress remain shared to preserve existing saves. Dev mode is URL-only at boot; legacy `maizes:dev` storage is ignored. Ordinary `/` always clears dev features, while `?dev=1` keeps invincibility and overlays. Native Swift difficulty has not been ported.
+
+### Revamp 3 (current web rules)
+
+See `REVAMP.md`. Campaign generation now calls `revamp()` to place optional shortcuts, shelters, discoveries, pickup rules and final markers. Hunter search is opt-in via `behavior: search`; legacy grids retain old chase behavior and pickup resets for native parity. Solver route following now continues through a continuous pickup and visits required finale discoveries. Optional timber is exempt from the required-axe cut invariant but must retain a safe alternate route. Difficulty variants reserve discovery/shelter cells against added traps.
+
+`setProgressProfile` selects revision/mode/dev performance records within the existing save. Aggregate `done` preserves unlocks; profile `done` drives times/stars and pursuit. Dev does not add aggregate wins. Old unknown-origin completions remain intact. Journals persist per profile. Tutorial acknowledgements are revision-specific and dev-prefixed. Level 100 requires all three markers plus maize. New sound effects cover chopping, breaking timber and discoveries.

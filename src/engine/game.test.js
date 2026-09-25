@@ -86,8 +86,10 @@ describe('traps', () => {
     const grid = corridor(6)
     grid.traps = [{ x: 3, y: 0 }]
     const game = createGame(grid)
+    game.onSound = vi.fn()
     game.ball.x = 3.5
     stepGame(game)
+    expect(game.onSound).toHaveBeenCalledWith('death')
     expect(game.deaths).toBe(1)
     expect(Math.floor(game.ball.x)).toBe(0)
   })
@@ -180,5 +182,80 @@ describe('the HUD snapshot', () => {
     }
     expect(hud.flagsTotal).toBe(1)
     expect(hud.hasFog).toBe(true)
+  })
+})
+
+describe('dev playthrough', () => {
+  function setup(dev = true) {
+    const grid = corridor(10)
+    grid.flags = [{ x: 2, y: 0 }, { x: 6, y: 0 }]
+    grid.traps = [{ x: 4, y: 0 }]
+    grid.hunter = { spawnMs: 100000, speed: 0.075 }
+    const game = createGame(grid)
+    game.dev = dev
+    game.onDeath = vi.fn()
+    game.onLose = vi.fn()
+    game.onCapture = vi.fn()
+    game.onWin = vi.fn()
+    return game
+  }
+
+  it('collects in place, crosses traps, and still requires all corn to win', () => {
+    const game = setup()
+    game.ball.x = 2.5
+    game.ball.vx = 0.05
+    stepGame(game)
+    expect(game.ball.x).toBeGreaterThan(2.5)
+    expect(game.ball.vx).toBeGreaterThan(0)
+    expect(game.captured.size).toBe(1)
+    expect(game.onCapture).toHaveBeenCalledTimes(1)
+    expect(game.fx.some(fx => fx.kind === 'spawn')).toBe(false)
+    stepGame(game)
+    expect(game.onCapture).toHaveBeenCalledTimes(1)
+    game.ball.vx = 0
+    game.ball.x = 4.5
+    stepGame(game)
+    expect(game.ball.x).toBe(4.5)
+    expect(game.captured.size).toBe(1)
+    expect(game.deaths).toBe(0)
+    expect(game.onDeath).not.toHaveBeenCalled()
+    game.ball.x = 9.5
+    stepGame(game)
+    expect(game.won).toBe(false)
+    game.ball.x = 6.5
+    stepGame(game)
+    expect(game.exitOpen).toBe(true)
+    expect(game.ball.x).toBe(6.5)
+    game.ball.x = 9.5
+    stepGame(game)
+    expect(game.won).toBe(true)
+    expect(game.onWin).toHaveBeenCalledTimes(1)
+    restartGame(game)
+    expect(game.dev).toBe(true)
+    expect(game.captured.size).toBe(0)
+    expect(game.ball.x).toBe(0.5)
+  })
+
+  it.each([true, false])('hunter contact respects dev=%s', (dev) => {
+    const game = setup(dev)
+    game.ball.x = 3.5
+    game.hunter.active = true
+    game.hunter.x = game.ball.x
+    game.hunter.y = game.ball.y
+    stepGame(game)
+    expect(game.lost).toBe(!dev)
+    expect(game.onLose).toHaveBeenCalledTimes(dev ? 0 : 1)
+  })
+
+  it('keeps pickup resets and trap penalties in normal play', () => {
+    const game = setup(false)
+    game.ball.x = 2.5
+    stepGame(game)
+    expect(game.ball.x).toBe(0.5)
+    game.ball.x = 4.5
+    stepGame(game)
+    expect(game.deaths).toBe(1)
+    expect(game.captured.size).toBe(0)
+    expect(game.onDeath).toHaveBeenCalledTimes(1)
   })
 })

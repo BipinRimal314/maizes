@@ -178,7 +178,7 @@ describe('every level asks its own question', () => {
     }
   })
 
-  it('opens each chapter on the shape the previous one closed with', () => {
+  it('introduces new mechanics on a familiar shape', () => {
     /*
      * The one-new-variable rule, extended. On the level where fog or the hunter
      * or the snow arrives, the shape of the problem is the shape just
@@ -193,6 +193,7 @@ describe('every level asks its own question', () => {
       chapters.at(-1).levels.push(level)
     }
     for (let i = 1; i < chapters.length; i++) {
+      if (!chapters[i].levels[0].teaches) continue
       const closed = chapters[i - 1].levels.at(-1).intent
       const opened = chapters[i].levels[0].intent
       expect(opened, `${chapters[i].name} opens on ${opened} after ${closed}`).toBe(closed)
@@ -375,5 +376,13 @@ describe('the campaign ramp', () => {
     const averages = [...byChapter.values()].map((d) => d.reduce((a, b) => a + b, 0) / d.length)
     expect(averages[0]).toBeLessThanOrEqual(averages[averages.length - 1])
     expect(averages[averages.length - 1]).toBeGreaterThan(averages[0])
+  })
+})
+
+describe('campaign pacing', () => {
+  it('keeps twenty crossings and every mechanic introduction', () => {
+    expect(levels).toHaveLength(20)
+    expect(new Set(levels.map(l => l.chapter)).size).toBe(13)
+    expect(levels.filter(l => l.teaches).map(l => l.teaches).sort()).toEqual(['fog', 'hunter', 'memory', 'sand', 'snow', 'traps'])
   })
 })

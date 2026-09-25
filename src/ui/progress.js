@@ -18,6 +18,8 @@
 import { loadSave, saveSnapshot, flushNow } from './persist.js'
 
 const STORAGE_KEY = 'maizes:v1'
+let activeKey = STORAGE_KEY
+let activeProfile = null
 
 const EMPTY = () => ({
   done: {},
@@ -47,8 +49,9 @@ function adopt(parsed) {
  * game reads progress synchronously several times a render. Loading once up
  * front is what lets everything below stay synchronous.
  */
-async function hydrate() {
-  cache = adopt(await loadSave(STORAGE_KEY))
+async function hydrate(campaign = null) {
+  activeKey = campaign ? `maizes:${campaign}` : STORAGE_KEY
+  cache = adopt(await loadSave(activeKey))
   return cache
 }
 
@@ -60,18 +63,43 @@ function read() {
   return cache
 }
 
+/** Unlocks survive revisions; competitive records never cross rulesets. */
+function setProgressProfile(difficulty, dev = false) {
+  activeProfile = `revamp3:${dev ? 'dev:' : ''}${difficulty}`
+}
+function recordStore() {
+  const store = read()
+  if (!activeProfile) return store
+  store.profiles ??= {}
+  store.profiles[activeProfile] ??= { done: {}, speedrun: EMPTY().speedrun }
+  return store.profiles[activeProfile]
+}
+
+function recordDiscovery(found) {
+  const store = recordStore()
+  store.journal ??= {}
+  store.journal[found.id] = found
+  write()
+}
+const journalEntries = () => Object.values(recordStore().journal ?? {})
+
 function write() {
-  saveSnapshot(STORAGE_KEY, cache)
+  saveSnapshot(activeKey, cache)
 }
 
 /** Write anything outstanding immediately — for a window that is closing. */
-const flushProgress = () => flushNow(STORAGE_KEY)
+const flushProgress = () => flushNow(activeKey)
 
 function recordWin(name, { deaths, ms }) {
-  const store = read()
+  const store = recordStore()
   const previous = store.done[name]
   if (!previous || deaths < previous.deaths || (deaths === previous.deaths && ms < previous.ms)) {
     store.done[name] = { deaths, ms }
+  }
+
+  if (activeProfile && !activeProfile.includes(':dev:')) {
+    // Aggregate entries are completion history, not comparable leaderboard times.
+    read().done[name] ??= { deaths, ms }
   }
 
   // A speedrun leg is judged against the frozen par, not against `done`.
@@ -87,8 +115,8 @@ function recordWin(name, { deaths, ms }) {
 }
 
 const isDone = (name) => !!read().done[name]
-const bestFor = (name) => read().done[name] || null
-const doneCount = () => Object.keys(read().done).length
+const bestFor = (name) => recordStore().done[name] || null
+const doneCount = (levels) => levels ? levels.filter(level => isDone(level.name)).length : Object.keys(read().done).length
 
 /**
  * How far along the trail the player has been let.
@@ -108,8 +136,10 @@ function unlockedCount(levels) {
 const isUnlocked = (levels, index) => index < unlockedCount(levels)
 
 /** Best-run totals across every level cleared so far, for the finale card. */
-function totals() {
-  const runs = Object.values(read().done)
+function totals(levels) {
+  const runs = levels
+    ? levels.map((level) => recordStore().done[level.name]).filter(Boolean)
+    : Object.values(recordStore().done)
   return {
     levels: runs.length,
     deaths: runs.reduce((sum, run) => sum + run.deaths, 0),
@@ -126,8 +156,8 @@ function totals() {
  * player having been slow, and a game may only judge a number it showed you.
  * This is that number, and it is the one act two freezes as par.
  */
-function walkedMs() {
-  return Object.values(read().done).reduce((sum, run) => sum + run.ms, 0)
+function walkedMs(levels) {
+  return totals(levels).ms
 }
 
 /** Ears of maize picked, counted only from levels actually finished. */
@@ -170,20 +200,21 @@ function speedrunFields(levels) {
 
 /** Freeze the current bests as the times to beat, and start the second run. */
 function startSpeedrun(levels) {
-  const store = read()
+  const store = recordStore()
   const par = {}
   for (const level of speedrunFields(levels)) {
     const best = store.done[level.name]
     if (best) par[level.name] = best.ms
+    else if (activeProfile && level.difficulty?.perfectSeconds) par[level.name] = Math.ceil(level.difficulty.perfectSeconds * 1.8) * 1000
   }
   store.speedrun = { active: true, par, beaten: {}, finished: false }
   write()
   return store.speedrun
 }
 
-const speedrunActive = () => read().speedrun.active === true
-const speedrunFinished = () => read().speedrun.finished === true
-const speedrunGaveUp = () => read().speedrun.gaveUp === true
+const speedrunActive = () => recordStore().speedrun.active === true
+const speedrunFinished = () => recordStore().speedrun.finished === true
+const speedrunGaveUp = () => recordStore().speedrun.gaveUp === true
 
 /**
  * Stop looking.
@@ -193,15 +224,15 @@ const speedrunGaveUp = () => read().speedrun.gaveUp === true
  * does not confiscate the story.
  */
 function concedeSpeedrun() {
-  read().speedrun.gaveUp = true
+  recordStore().speedrun.gaveUp = true
   write()
 }
-const parFor = (name) => read().speedrun.par[name] ?? null
-const beatenTime = (name) => read().speedrun.beaten[name] ?? null
-const isBeaten = (name) => read().speedrun.beaten[name] != null
+const parFor = (name) => recordStore().speedrun.par[name] ?? null
+const beatenTime = (name) => recordStore().speedrun.beaten[name] ?? null
+const isBeaten = (name) => recordStore().speedrun.beaten[name] != null
 
 function speedrunProgress(levels) {
-  const store = read()
+  const store = recordStore()
   const target = levels.filter((level) => store.speedrun.par[level.name] != null)
   return {
     beaten: target.filter((level) => store.speedrun.beaten[level.name] != null).length,
@@ -216,17 +247,19 @@ function speedrunComplete(levels) {
 }
 
 function finishSpeedrun() {
-  read().speedrun.finished = true
+  recordStore().speedrun.finished = true
   write()
 }
 
 /** Testing seam: drop the in-memory copy so the next read hits storage again. */
 function resetCache() {
+  activeKey = STORAGE_KEY
+  activeProfile = null
   cache = null
 }
 
 export {
-  hydrate, flushProgress,
+  hydrate, flushProgress, setProgressProfile, recordDiscovery, journalEntries,
   recordWin, isDone, bestFor, doneCount, totals, maizeCollected, walkedMs,
   unlockedCount, isUnlocked,
   hasSeen, markSeen,

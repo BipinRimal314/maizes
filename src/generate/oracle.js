@@ -47,6 +47,22 @@ function checkStructure(grid) {
   const problems = []
   const traps = trapKeys(grid)
   const scale = grid.cols + grid.rows
+  if (grid.wood?.length) {
+    if (!grid.axe) problems.push('timber has no axe')
+    const locked = new Set([...traps, ...grid.wood.map(p => key(p.x, p.y))])
+    const before = distancesFrom(grid, grid.start, locked)
+    if (grid.axe && !before.has(key(grid.axe.x, grid.axe.y))) problems.push('axe is behind timber or a trap')
+    if (grid.woodMode !== 'optional' && before.has(key(grid.end.x, grid.end.y))) problems.push('exit bypasses the axe')
+    if (grid.woodMode !== 'optional' && grid.flags.some(p => before.has(key(p.x, p.y)))) problems.push('corn bypasses the axe')
+    const reserved = [grid.start, grid.end, grid.axe, grid.charm, ...grid.flags, ...grid.traps].filter(Boolean)
+    for (const p of grid.wood) {
+      if (p.x < 0 || p.y < 0 || p.x >= grid.cols || p.y >= grid.rows) problems.push('timber outside maze')
+      if (reserved.some(q => q.x === p.x && q.y === p.y)) problems.push('timber overlaps an objective')
+    }
+  }
+  for (const tool of [grid.axe, grid.charm].filter(Boolean)) {
+    if (!findPath(grid, grid.start, tool, traps)) problems.push('tool has no safe route')
+  }
 
   const route = findPath(grid, grid.start, grid.end)
   if (!route) {

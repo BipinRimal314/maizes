@@ -565,6 +565,13 @@ function toJSON(level, name) {
   const { grid } = level
   return {
     name,
+    revision: grid.revision, pickupMode: grid.pickupMode, objective: grid.objective,
+    woodMode: grid.woodMode, shortcutSaving: grid.shortcutSaving,
+    discoveries: grid.discoveries, shelters: grid.shelters,
+    hunterBehavior: grid.hunter?.behavior, hunterSight: grid.hunter?.sight,
+    axe: grid.axe ? [grid.axe.x, grid.axe.y] : null,
+    wood: (grid.wood ?? []).map(p => [p.x, p.y]),
+    charm: grid.charm ? [grid.charm.x, grid.charm.y] : null,
     tier: level.tier,
     intent: level.intent,
     teaches: level.teaches ?? null,
@@ -587,6 +594,12 @@ function toJSON(level, name) {
 
 function fromJSON(data) {
   return {
+    revision: data.revision, pickupMode: data.pickupMode, objective: data.objective,
+    woodMode: data.woodMode, shortcutSaving: data.shortcutSaving,
+    discoveries: data.discoveries ?? [], shelters: data.shelters ?? [],
+    axe: data.axe ? { x: data.axe[0], y: data.axe[1] } : null,
+    wood: (data.wood ?? []).map(([x, y]) => ({ x, y })),
+    charm: data.charm ? { x: data.charm[0], y: data.charm[1] } : null,
     cols: data.c,
     rows: data.r,
     walls: Uint8Array.from(data.w),
@@ -598,7 +611,7 @@ function fromJSON(data) {
     memory: data.m ?? null,
     terrain: data.terrain ?? null,
     surface: surfaceFrom(data),
-    hunter: data.h ? { spawnMs: data.h[0], speed: data.h[1] } : null,
+    hunter: data.h ? { spawnMs: data.h[0], speed: data.h[1], behavior: data.hunterBehavior, sight: data.hunterSight } : null,
     patience: data.p ?? null,
   }
 }

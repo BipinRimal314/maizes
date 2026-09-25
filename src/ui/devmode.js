@@ -8,7 +8,7 @@
  * everything and puts the detail back.
  *
  * Turned on by visiting with `?dev` (or `?dev=1`), off with `?dev=0`, and
- * remembered after that so the flag does not have to be carried around. It is
+ * limited to that URL; visiting the ordinary URL always turns it off. It is
  * deliberately not a keyboard easter egg — a tester who stumbles onto a secret
  * that reveals the whole campaign has had the game spoiled by an accident.
  */
@@ -31,38 +31,23 @@ const DEV_KEY = 'maizes:dev'
  */
 const devAllowed = () => import.meta.env?.VITE_NO_DEV !== '1'
 
-function storage() {
-  try { return globalThis.window?.localStorage ?? null } catch { return null }
-}
-
-function readFlag() {
-  if (!devAllowed()) return false
-  try { return storage()?.getItem(DEV_KEY) === '1' } catch { return false }
-}
+let active = false
 
 function setDevMode(on) {
-  if (!devAllowed()) return false
-  try { storage()?.setItem(DEV_KEY, on ? '1' : '0') } catch { /* private mode */ }
-  return !!on
+  active = devAllowed() && !!on
+  return active
 }
 
-/**
- * Apply `?dev` from the URL, if present, and return the resulting state.
- * Called once at boot; the query string wins over what was stored.
- */
+/** Explicit URL opt-in on every page load; never inherit a stored dev flag. */
 function initDevMode() {
-  if (!devAllowed()) return false
   try {
     const params = new URLSearchParams(globalThis.window?.location?.search ?? '')
-    if (!params.has('dev')) return readFlag()
     const value = params.get('dev')
-    return setDevMode(value !== '0' && value !== 'false')
-  } catch {
-    return readFlag()
-  }
+    return setDevMode(params.has('dev') && (value === '' || value === '1' || value === 'true'))
+  } catch { return setDevMode(false) }
 }
 
-const isDevMode = () => readFlag()
-const toggleDevMode = () => setDevMode(!readFlag())
+const isDevMode = () => devAllowed() && active
+const toggleDevMode = () => setDevMode(!isDevMode())
 
 export { initDevMode, isDevMode, setDevMode, toggleDevMode, DEV_KEY }

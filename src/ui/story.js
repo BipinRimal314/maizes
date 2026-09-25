@@ -17,7 +17,22 @@ import {
   WHISPERS,
 } from '../content.js'
 
-const whisperFor = (levelName) => WHISPERS[levelName] ?? null
+const CAMPAIGN_WHISPERS = {
+  'Field 005': '…where did she go…',
+  'Field 010': '…they came up the west track…',
+  'Field 017': '…count them, papa…',
+  'Field 025': '…she’s still dropping them…',
+  'Field 034': '…don’t look back…',
+  'Field 041': '…she goes on the first cart…',
+  'Field 050': '…careful at the turn…',
+  'Field 058': '…she left the path…',
+  'Field 066': '…he’s still out there?…',
+  'Field 074': '…remember the lights, papa?…',
+  'Field 083': '…almost, papa…',
+  'Field 090': '…it goes on and on out here…',
+  'Field 099': '…papa. i can see you…',
+}
+const whisperFor = (levelName) => CAMPAIGN_WHISPERS[levelName] ?? WHISPERS[levelName] ?? null
 
 /** The beat owed after finishing `chapter`, or null. */
 const beatAfterChapter = (chapter) => CHAPTER_BEATS[chapter] ?? null

@@ -1,3 +1,4 @@
+import { difficultyGrid } from './difficulty.js'
 /**
  * Game state and one fixed step of simulation.
  *
@@ -24,7 +25,8 @@
  * wiped flags you could only reach by dying, a mechanic switched on by era that
  * contradicted another mechanic switched on by era.
  *
- * Captured flags persist across deaths, always. That single rule removes the
+ * Legacy unhunted fields preserve captured flags. Explicit Easy always keeps
+ * maize on trap falls; Difficult always clears it. This removes the
  * entire class of "you must die to progress but dying undoes progress".
  *
  * Plain mutable state, no React. The component reads a small snapshot a few
@@ -33,6 +35,7 @@
 
 import { createBall, resetBall, stepBall, ballCell } from './physics.js'
 import { key, trapSet, flagSet, surfaceAt } from './grid.js'
+import { toolGrid, resetTools, stepTools, REPEL_MS } from './tools.js'
 import { createHunter, sleepHunter, stepHunter } from './hunter.js'
 import { NEUTRAL } from './assist.js'
 import { pushFx, pruneFx, bumpAxis } from './fx.js'
@@ -59,9 +62,24 @@ const BUMP_SOUND_GAP_MS = 140
  *                         generation is always the game as designed, whatever
  *                         this player has turned on. See engine/assist.js.
  */
-function createGame(grid, assist = NEUTRAL) {
+const exitReady = game => game.captured.size >= game.grid.flags.length && (game.grid.discoveries ?? []).every(p => !p.required || game.discoveries.has(p.id))
+
+function createGame(grid, assist = NEUTRAL, difficulty = null) {
+  grid = difficultyGrid(grid, difficulty)
+  const originalGrid = grid
+  grid = toolGrid(grid)
   return {
     grid,
+    originalGrid,
+    difficulty,
+    hasAxe: false,
+    charm: 0,
+    charmPicked: false,
+    wood: new Set((grid.wood ?? []).map(p => key(p.x, p.y))),
+    chopping: null,
+    discoveries: new Set(),
+    discovery: null,
+    discoveryUntil: 0,
     assist,
     ball: createBall(grid),
     input: { up: false, down: false, left: false, right: false },
@@ -75,7 +93,7 @@ function createGame(grid, assist = NEUTRAL) {
     traps: trapSet(grid),
     flags: flagSet(grid),
     captured: new Set(),
-    exitOpen: grid.flags.length === 0,
+    exitOpen: grid.flags.length === 0 && !(grid.discoveries ?? []).some(p => p.required),
 
     hunter: createHunter(grid, assist.ghostPace),
 
@@ -94,6 +112,7 @@ function createGame(grid, assist = NEUTRAL) {
     fx: [],              // timestamped presentation events; see engine/fx.js
     outro: 0,            // ms since the level was won; the only clock that runs after
     stick: null,         // the touch stick, in cell coordinates, while a finger is down
+    dev: false,          // full-map testing: no deaths or pickup teleports
     lastBump: -1e9,      // game time of the last audible knock, to rate-limit it
 
     /*
@@ -155,14 +174,14 @@ function die(game, at) {
   game.flash = { x: at.x, y: at.y, until: game.now + RESPAWN_FLASH_MS, kind: 'trap' }
   game.trail = []
 
-  const costsTheField = game.hunter !== null && game.captured.size > 0
+  const costsTheField = game.captured.size > 0 && (game.difficulty === 'difficult' || (game.difficulty !== 'easy' && game.hunter !== null))
   if (costsTheField) {
     for (const id of game.captured) {
       const comma = id.indexOf(',')
       pushFx(game, 'unpick', { x: +id.slice(0, comma), y: +id.slice(comma + 1) })
     }
     game.captured.clear()
-    game.exitOpen = game.grid.flags.length === 0
+    game.exitOpen = game.grid.flags.length === 0 && (game.grid.discoveries ?? []).every(p => !p.required || game.discoveries.has(p.id))
     game.quip = LOST_MAIZE_QUIPS[(game.quipOffset + game.deaths) % LOST_MAIZE_QUIPS.length]
   } else {
     game.quip = quipFor(game)
@@ -200,16 +219,17 @@ function capture(game, at) {
   if (game.captured.has(id)) return
 
   game.captured.add(id)
-  game.exitOpen = game.captured.size >= game.grid.flags.length
-  resetBall(game.ball, game.grid)
-  // a capture is a return to the start too, so the same rule applies
-  sleepHunter(game.hunter, game.now)
+  game.exitOpen = exitReady(game)
+  if (!game.dev && game.grid.pickupMode !== 'continuous') {
+    resetBall(game.ball, game.grid)
+    sleepHunter(game.hunter, game.now)
+  }
   game.flash = { x: at.x, y: at.y, until: game.now + CAPTURE_FLASH_MS, kind: 'flag' }
-  game.quip = game.exitOpen ? PICKED_LAST : PICKED_ONE
-  game.trail = []
+  game.quip = game.exitOpen ? PICKED_LAST : (game.dev || game.grid.pickupMode === 'continuous') ? 'Another one. Keep going.' : PICKED_ONE
+  if (!game.dev && game.grid.pickupMode !== 'continuous') game.trail = []
   pushFx(game, 'pick', at)
   if (game.exitOpen) pushFx(game, 'unlock', at)
-  pushFx(game, 'spawn', game.grid.start)
+  if (!game.dev && game.grid.pickupMode !== 'continuous') pushFx(game, 'spawn', game.grid.start)
   emit(game, game.exitOpen ? 'unlock' : 'capture')
   if (game.onCapture) game.onCapture(at)
 }
@@ -230,7 +250,9 @@ function stepGame(game) {
 
   const vxBefore = game.ball.vx
   const vyBefore = game.ball.vy
+  stepTools(game, STEP_MS)
   stepBall(game.ball, game.input, game.grid)
+  stepTools(game, 0)
 
   /*
    * A knock against a wall, shown and — sparingly — heard. Read off the
@@ -269,7 +291,17 @@ function stepGame(game) {
     if (game.onStep) game.onStep(surfaceAt(game.grid, cell.x, cell.y))
   }
 
-  if (game.traps.has(id)) {
+  const found = (game.grid.discoveries ?? []).find(p => key(p.x, p.y) === id && !game.discoveries.has(p.id))
+  if (found) {
+    game.discoveries.add(found.id)
+    game.discovery = found
+    game.discoveryUntil = game.now + 9000
+    game.exitOpen = exitReady(game)
+    game.onDiscovery?.(found)
+    emit(game, 'discovery')
+  }
+
+  if (!game.dev && game.traps.has(id)) {
     die(game, cell)
     return
   }
@@ -294,7 +326,13 @@ function stepGame(game) {
   // but it can never take one away.
   const wasAsleep = game.hunter !== null && !game.hunter.active
   if (stepHunter(game.hunter, game.grid, game.ball, game.now)) {
-    lose(game, cell)
+    if (!game.dev && game.charm > 0) {
+      game.charm -= 1
+      sleepHunter(game.hunter, game.now)
+      game.hunter.wakesAt = game.now + REPEL_MS
+      game.quip = 'The ward broke. Ten seconds to get away.'
+      emit(game, 'unlock')
+    } else if (!game.dev) lose(game, cell)
   } else if (wasAsleep && game.hunter.active) {
     game.quip = GHOST_WOKE
     pushFx(game, 'wake', { x: game.hunter.x, y: game.hunter.y })
@@ -304,14 +342,18 @@ function stepGame(game) {
 
 /** Restart the attempt. The level itself is never modified, so this is total. */
 function restartGame(game) {
+  resetTools(game)
   resetBall(game.ball, game.grid)
   game.now = 0
+  game.discoveries.clear()
+  game.discovery = null
+  game.discoveryUntil = 0
   game.hunter = createHunter(game.grid, game.assist.ghostPace)
   game.won = false
   game.lost = false
   game.deaths = 0
   game.captured.clear()
-  game.exitOpen = game.grid.flags.length === 0
+  game.exitOpen = game.grid.flags.length === 0 && (game.grid.discoveries ?? []).every(p => !p.required || game.discoveries.has(p.id))
   game.visited.clear()
   game.visited.set(key(game.grid.start.x, game.grid.start.y), 0)
   game.flash = null
@@ -327,6 +369,17 @@ function restartGame(game) {
 /** The small flat object React renders. No collections cross this boundary. */
 function snapshot(game) {
   return {
+    discovery: game.now < game.discoveryUntil ? game.discovery : null,
+    discoveryCount: game.discoveries.size,
+    markersLeft: (game.grid.discoveries ?? []).filter(p => p.required && !game.discoveries.has(p.id)).length,
+    hunterMood: game.hunter?.mood ?? 'asleep',
+    hasAxe: game.hasAxe,
+    needsAxe: Boolean(game.grid.axe),
+    woodLeft: game.wood.size,
+    charm: game.charm,
+    hasCharm: Boolean(game.grid.charm),
+    charmPicked: game.charmPicked,
+    chopping: game.chopping ? game.chopping.ms / 450 : 0,
     now: game.now,
     won: game.won,
     lost: game.lost,
